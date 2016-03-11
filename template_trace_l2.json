@@ -1,0 +1,13 @@
+{ 
+    "trace" : 
+    {
+        "switch": {
+            "dpid" : "cc4e2446d9000000",
+            "in_port": 100
+        },
+        "eth" : {
+            "dl_vlan": 100,
+            "dl_type": 33024
+        }
+    }
+}    
