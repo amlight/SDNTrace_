@@ -8,6 +8,7 @@ from ryu.ofproto.ofproto_v1_0_parser import OFPPhyPort
 import prepare
 from ryu.lib import hub
 import topology
+import trace_pkt
 
 
 class OFSwitch:
@@ -223,5 +224,40 @@ class SDNTrace(app_manager.RyuApp):
                                 actions=actions)
         # DEBUG:
         # print mod
+
         datapath.send_msg(mod)
         datapath.send_barrier()
+
+    def process_trace_req(self, entries):
+        '''
+            Receives the REST/PUT to generate a PacketOut
+            data needs to be serialized
+            template_trace.json is an example
+        '''
+        dpid = entries['trace']['switch']['dpid']
+
+        for node in self.node_list:
+            if dpid == node.name:
+                color = node.color
+                break
+        else:
+            print 'Device not found %s' % dpid
+            return
+
+        in_port, pkt = trace_pkt.generate_trace_pkt(entries, color)
+
+        for port in node.ports:
+            if port != in_port:
+                parser = node.obj.msg.datapath.ofproto_parser
+                datapath = node.obj.msg.datapath
+                actions = [parser.OFPActionOutput(port)]
+                ofproto = datapath.ofproto
+                buffer_id = ofproto.OFP_NO_BUFFER
+                out = parser.OFPPacketOut(datapath=datapath,
+                                          buffer_id=buffer_id,
+                                          in_port=in_port,
+                                          actions=actions,
+                                          data=pkt.data)
+                datapath.send_msg(out)
+
+        return pkt
