@@ -99,7 +99,30 @@ def generate_trace_pkt(entries, color):
         pkt.add_protocol(ip_pkt)
         tp_pkt = tcp.tcp(dst_port=tp_dst, src_port=tp_src)
         pkt.add_protocol(tp_pkt)
+        data = "jab"
+        pkt.add_protocol(data)
 
     pkt.serialize()
     print pkt
     return in_port, pkt
+
+
+def process_probe_packet(ev, pkt):
+    pktIn_dpid = '%016x' % ev.msg.datapath.id
+    pktIn_port = ev.msg.in_port
+
+    print 'process_probe'
+    pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
+    if pkt_eth.ethertype == 33024:
+        pkt_vlan = pkt.get_protocols(vlan.vlan)[0]
+        print pkt_vlan
+        if pkt_vlan.pcp is not 0:
+            # Validate to confirm it is a probe, not a user tagged packet
+            # If not a probe, generate a PacketOut to send the packet back to
+            # datapath
+            # Once validated, the the whole pkt to an array
+            print 'valid'
+            return (pktIn_dpid, pktIn_port, pkt)
+    return False
+
+    return

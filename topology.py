@@ -73,9 +73,14 @@ def process_packetIn(pkt, ev, links):
     pktIn_dpid = '%016x' % ev.msg.datapath.id
     # pktIn_port = ev.msg.in_port
 
-    # Extract LLDP from PacketIn.data
     pkt = packet.Packet(ev.msg.data)
+    pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
 
+    # If not LLDP, it could be a probe Packet
+    if pkt_eth.ethertype != ether.ETH_TYPE_LLDP:
+        return 2, pkt
+
+    # Extract LLDP from PacketIn.data
     # Check if is LLDP
     pkt_lldp = pkt.get_protocols(lldp.lldp)[0]
 
@@ -92,4 +97,4 @@ def process_packetIn(pkt, ev, links):
     # Keep a single record between switches
     # It doesn't matter how many connectios between them
     links.append(link)
-    return prepare.simplify_list_links(links)
+    return 1, prepare.simplify_list_links(links)

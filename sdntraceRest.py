@@ -66,5 +66,6 @@ class SDNTraceController(ControllerBase):
         # Process trace
         result = nodes_app.process_trace_req(new_entry)
         print result
-        body = json.dumps(1)
+        result_json = {'dpid': result[0], 'in_port': result[1]}
+        body = json.dumps(result_json)
         return Response(content_type='application/json', body=body)

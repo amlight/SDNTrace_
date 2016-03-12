@@ -62,6 +62,8 @@ class SDNTrace(app_manager.RyuApp):
         # Threads
         self.topo_disc = hub.spawn(self._topology_discovery)
         self.push_colors = hub.spawn(self._push_colors)
+        # Trace
+        self.trace_pktIn = []
 
     def _topology_discovery(self):
         '''
@@ -99,7 +101,8 @@ class SDNTrace(app_manager.RyuApp):
         ofproto = datapath.ofproto
         buffer_id = ofproto.OFP_NO_BUFFER
         out = parser.OFPPacketOut(datapath=datapath, buffer_id=buffer_id,
-                                  in_port=port, actions=actions, data=pkt.data)
+                                  in_port=ofproto.OFPP_NONE, actions=actions,
+                                  data=pkt.data)
         datapath.send_msg(out)
         return
 
@@ -141,7 +144,13 @@ class SDNTrace(app_manager.RyuApp):
         '''
             Process PacketIn - create the topology
         '''
-        self.links = topology.process_packetIn(self, ev, self.links)
+        action, result = topology.process_packetIn(self, ev, self.links)
+        if action is 1:
+            self.links = result
+        elif action is 2:
+            pkt = trace_pkt.process_probe_packet(ev, result)
+            if pkt is not False:
+                self.trace_pktIn.append(pkt)
 
     def get_topology_data(self):
         '''
@@ -255,9 +264,12 @@ class SDNTrace(app_manager.RyuApp):
                 buffer_id = ofproto.OFP_NO_BUFFER
                 out = parser.OFPPacketOut(datapath=datapath,
                                           buffer_id=buffer_id,
-                                          in_port=in_port,
+                                          in_port=ofproto.OFPP_NONE,
                                           actions=actions,
                                           data=pkt.data)
                 datapath.send_msg(out)
 
-        return pkt
+        # Check array of packets
+        hub.sleep(5)
+        print self.trace_pktIn
+        return self.trace_pktIn[0]
