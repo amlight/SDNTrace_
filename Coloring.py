@@ -1,9 +1,9 @@
-class Vertex(object):
-
-    def __init__(self, name):
-        self.name = str(name)
-        self.color = "0"
-        self.adjenceciesList = []
+# class Vertex(object):
+#
+#    def __init__(self, name):
+#        self.name = str(name)
+#        self.color = "0"
+#        self.adjenceciesList = []
 
 
 class Coloring(object):

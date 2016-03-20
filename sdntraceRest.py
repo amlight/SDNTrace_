@@ -35,6 +35,14 @@ class SDNTraceController(ControllerBase):
     def print_switch_neighbors(self, req, **kwargs):
         return self._switch_neighbors(req, **kwargs)
 
+    @route('sdntrace', '/sdntrace/switches/topology', methods=['GET'])
+    def print_switch_neighbors(self, req, **kwargs):
+        return self._topology(req, **kwargs)
+
+    @route('sdntrace', '/sdntrace/switches/traceid/{tid}', methods=['GET'])
+    def print_switch_neighbors(self, req, **kwargs):
+        return self._traceid(req, **kwargs)
+
     @route('sdntrace', '/sdntrace/trace', methods=['PUT'])
     def run_trace(self, req, **kwargs):
         return self._trace(req, **kwargs)
@@ -58,6 +66,16 @@ class SDNTraceController(ControllerBase):
             if node.name == dpid:
                 neighbors = [node.name for node in node.adjenceciesList]
         body = json.dumps(neighbors)
+        return Response(content_type='application/json', body=body)
+
+    def _topology(self, req, **kwargs):
+        topology = ""
+        body = json.dumps(topology)
+        return Response(content_type='application/json', body=body)
+
+    def _traceid(self, req, **kwargs):
+        traceid = ""
+        body = json.dumps(traceid)
         return Response(content_type='application/json', body=body)
 
     def _trace(self, req, **kwargs):
