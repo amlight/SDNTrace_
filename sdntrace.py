@@ -1,36 +1,53 @@
+from ryu import utils
 from ryu.base import app_manager
 from ryu.controller import ofp_event
-from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
 from ryu.controller.handler import DEAD_DISPATCHER
+from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
+from ryu.lib import hub
 from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto.ofproto_v1_0_parser import OFPPhyPort
-import prepare
-from ryu.lib import hub
-import topology
-import trace_pkt
-import brocade
+
+from Coloring import prepare, topology
+from Exceptions import brocade
+from Tracing import trace_pkt, tracing
 
 
 class OFSwitch:
     """
-        Used to keep track of the main info about each node
+        Used to keep track of each node
+        This object is used in the SDNTrace.node_list
     """
     def __init__(self, ev):
         self.obj = ev
         self.dpid = ev.msg.datapath_id
         self.ports = self._extract_ports()
         # To be used for coloring
-        self.adjenceciesList = []
+        self.adjacencies_list = []
         self.color = "0"
         self.old_color = "0"
         self.name = self.datapath_id
+        # To avoid issues when deleting flows
+        global MINIMUM_COOKIE_ID
+        self.cookie = MINIMUM_COOKIE_ID + 1
+        MINIMUM_COOKIE_ID += 1
 
     @property
     def datapath_id(self):
+        """
+            Property to print datapath_id in the hex format
+            Returns:
+                dpid in hex
+        """
         return '%016x' % self.dpid
 
     def _extract_ports(self):
+        """
+            Extract ports from FeatureReply message
+            Ports are added to the self.ports
+            Returns:
+                list of ports found for a specific node
+        """
         num_ports = len(self.obj.msg.ports)
         ofproto = self.obj.msg.datapath.ofproto
         offset = ofproto.OFP_SWITCH_FEATURES_SIZE
@@ -45,10 +62,18 @@ class OFSwitch:
         return port_list
 
 
+# These will become part of a configuration file
+MINIMUM_COOKIE_ID = 2000000
 PACKET_OUT_INTERVAL = 5
 PUSH_COLORS_INTERVAL = 10
 COLLECT_INTERVAL = 30
 HAS_OFPP_TABLE_SUPPORT = True
+VLAN_DISCOVERY = 100
+FLOW_PRIORITY = 1000
+
+
+# TODO Print 'System Ready' once the topology was discovery
+# TODO Do not accept any request before that
 
 
 class SDNTrace(app_manager.RyuApp):
@@ -67,25 +92,31 @@ class SDNTrace(app_manager.RyuApp):
         self.push_colors = hub.spawn(self._push_colors)
         # self.collect_stats = hub.spawn(self._collect_stats)
         # Trace
-        self.trace_pktIn = []
+        # self.active_traces = []  # list of Probes class
+        self.trace_pktIn = []  # list of received PacketIn not LLDP
 
     def _topology_discovery(self):
         """
-            Keeps loops node_list every 5 seconds
-            Send packet_out + LLDP for every port found
+            Keeps looping node_list every PACKET_OUT_INTERVAL seconds
+            Send a packet_out w/ LLDP to every port found
+            Args:
+                self
         """
         while True:
             for node in self.node_list:
                 for port in node.ports:
-                    self._send_packet_out_lldp(node, port)
+                    pkt = topology.prepare_lldp_packet(node, port)
+                    self.send_packet_out(node, port, pkt.data, True)
             hub.sleep(PACKET_OUT_INTERVAL)
 
     def _push_colors(self):
         """
-            This routine will run each PUSH_COLORS_INTERVAL inverval
+            This routine will run each PUSH_COLORS_INTERVAL interval
             and process the self.links to associate colors to OFSwitches.
             Flows will be pushed to the switch with the VLAN_PCP field set
             to the defined color outputing to controller
+            Args:
+                self
         """
         while True:
             if len(self.node_list) > 1:
@@ -93,33 +124,48 @@ class SDNTrace(app_manager.RyuApp):
                     self.get_topology_data()
             hub.sleep(PUSH_COLORS_INTERVAL)
 
-    def _collect_stats(self):
-        """
-            This method will send FLOW_STAT_REQ each COLLECT_INTERVAL interval
+    # def _collect_stats(self):
+    #     """
+    #         This method will send FLOW_STAT_REQ each
+    #           COLLECT_INTERVAL interval
+    #         Args:
+    #             self
+    #     """
+    #     while True:
+    #         for node in self.node_list:
+    #             brocade.send_stat_req(self, node)
+    #         hub.sleep(COLLECT_INTERVAL)
 
+    @staticmethod
+    def send_packet_out(node, port, data, lldp=False):
         """
-        while True:
-            for node in self.node_list:
-                brocade.send_stat_req(self, node)
-            hub.sleep(COLLECT_INTERVAL)
-
-    def _send_packet_out_lldp(self, node, port):
+            Sends PacketOut - Serializes Traces and LLDP packets for topology discovery
+            Args:
+                node: node to send PacketOut
+                port: if LLDP: port to send PacketOut out. if Trace: in_port field
+                data: Ethernet frame to be send
+                lldp: used in case of LLDP packets (used by _topology_discovery)
         """
-            PacketOut - Serializes LLDP packets for topology discovery
-
-            node, port = node and port to send the LLDP out
-        """
-        pkt = topology.prepare_lldp(node, port)
 
         parser = node.obj.msg.datapath.ofproto_parser
         datapath = node.obj.msg.datapath
-        actions = [parser.OFPActionOutput(port)]
         ofproto = datapath.ofproto
+
+        if lldp:
+            in_port=ofproto.OFPP_NONE
+            out_port=port
+        else:
+            in_port=port
+            out_port=ofproto.OFPP_TABLE
+
+        actions = [parser.OFPActionOutput(out_port)]
         buffer_id = ofproto.OFP_NO_BUFFER
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=buffer_id,
-                                  in_port=ofproto.OFPP_NONE, actions=actions,
-                                  data=pkt.data)
+        out = parser.OFPPacketOut(datapath=datapath, in_port=in_port,
+                                  buffer_id=buffer_id, actions=actions,
+                                  data=data)
         datapath.send_msg(out)
+        if not lldp:
+            print out
         return
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -128,8 +174,8 @@ class SDNTrace(app_manager.RyuApp):
             FeatureReply - For each new switch that connects, add to the
             node_list array. This array will be used for sending packetOut
             and generate topology and colors
-
-            ev - packet captured
+            Args:
+                ev: event triggered
         """
         self.node_list.append(OFSwitch(ev))
         self.add_default_flow(ev)
@@ -137,16 +183,21 @@ class SDNTrace(app_manager.RyuApp):
     def add_default_flow(self, ev):
         """
             Push default flow
+            Args:
+                ev: event triggered
         """
-        datapath, match, actions = topology.prepare_default_flow(self, ev)
+        vlan = VLAN_DISCOVERY
+        datapath, match, actions = topology.prepare_default_flow(self, ev, vlan)
         ofproto = datapath.ofproto
-        self.add_flow(datapath, 0, 0, ofproto.OFPFC_ADD, match, actions)
+        self.push_flow(datapath, 0, 0, ofproto.OFPFC_ADD, match, actions)
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     def port_status(self, ev):
         """
             Process OFP_Port_Status
             Add or Remove ports from OFSwitch.ports
+            Args:
+                ev: packet captured
         """
         topology.process_port_status(self, ev)
 
@@ -154,38 +205,54 @@ class SDNTrace(app_manager.RyuApp):
     def remove_switch(self, ev):
         """
             If DEAD_DISPATCHER received, remove switch from self.node_list
+            Args:
+                ev: packet captured
         """
         topology.remove_switch(self, ev)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handle(self, ev):
         """
-            Process PacketIn - create the topology
+            Process PacketIn
+            PacketIN messages are used for topology discovery and traces
+            Args:
+                ev: event triggered
         """
-        print 'packetIn'
         action, result = topology.process_packetIn(self, ev, self.links)
         if action is 1:
             self.links = result
         elif action is 2:
-            pkt = trace_pkt.process_probe_packet(ev, result)
+            # To be finished.
+            pkt = tracing.process_probe_packet(ev, result)
             if pkt is not False:
                 self.trace_pktIn.append(pkt)
 
-    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
-    def flow_stats_reply(self, ev):
+    # @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
+    # def flow_stats_reply(self, ev):
+    #     """
+    #         Process Flow Stats
+    #         Args:
+    #             ev: packet captured
+    #     """
+    #     brocade.flow_stats_reply(ev)
+
+    @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
+    def openflow_error(self, ev):
         """
-            Process Flow Stats
-            ev = packet received
+            Print Error Received. Useful for troubleshooting, specially with Brocade
         """
-        brocade.flow_stats_reply(ev)
+        msg = ev.msg
+        print ('OFPErrorMsg received: type=0x%02x code=0x%02x message=%s' %
+               (msg.type, msg.code, utils.hex_array(msg.data)))
 
     def get_topology_data(self):
         """
             First define colors for each node
             Then push flows
+            Args:
+                self
         """
-        prepare.prepare_adjencenciesList(self, self.links)
-        colors = prepare.define_color(self)
+        colors = prepare.define_color(self, self.links)
 
         # Compare received colors with self.old_colors
         # If the same, ignore
@@ -211,7 +278,7 @@ class SDNTrace(app_manager.RyuApp):
                 for key in color:
                     if key != node.name:
                         idx = prepare.get_node_from_name(self, key)
-                        if self.node_list[idx] in node.adjenceciesList:
+                        if self.node_list[idx] in node.adjacencies_list:
                             neighbor_colors.append(color[key])
             for color in neighbor_colors:
                 self.install_color(node, color)
@@ -220,24 +287,32 @@ class SDNTrace(app_manager.RyuApp):
     def delete_colored_flows(self, node):
         """
             Remove old colored flows from the node
+            TODO: add cookies to the filter
+            Args:
+                node: node to be removed
         """
-        # Test this method!!
+        # Test this method!!!!!
         datapath = node.obj.msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         op = ofproto.OFPP_CONTROLLER
         actions = [datapath.ofproto_parser.OFPActionOutput(op)]
         color = int(node.old_color)
-        match = parser.OFPMatch(dl_type=0x8100, dl_vlan=100, dl_vlan_pcp=color)
-        self.add_flow(datapath, 0, 55555, ofproto.OFPFC_DELETE_STRICT,
+        if color is 0:
+            # It means no color was previously associated to this node
+            return
+        match = parser.OFPMatch(dl_type=0x8100, dl_vlan_pcp=color)
+        cookie = node.cookie
+        self.push_flow(datapath, cookie, FLOW_PRIORITY, ofproto.OFPFC_DELETE_STRICT,
                       match, actions)
         return
 
     def install_color(self, node, color):
         """
             Prepare to send the FlowMod to install the colored flow
-            node - datapath
-            color - VLAN_PCP to be used
+            Args:
+                node: datapath
+                color: VLAN_PCP to be used
         """
         datapath = node.obj.msg.datapath
         ofproto = datapath.ofproto
@@ -247,12 +322,23 @@ class SDNTrace(app_manager.RyuApp):
         actions = [datapath.ofproto_parser.OFPActionOutput(op)]
 
         color = int(color)
-        match = parser.OFPMatch(dl_type=0x8100, dl_vlan=100, dl_vlan_pcp=color)
-        self.add_flow(datapath, 0, 55555, ofproto.OFPFC_ADD, match, actions)
+        # VLANS CAN NOT BE DEFINED OR IT WILL HAVE TO BE DEFINED ON DEMAND?? Brocade CES
+        # match = parser.OFPMatch(dl_type=0x8100, dl_vlan=100, dl_vlan_pcp=color)
+        match = parser.OFPMatch(dl_type=0x8100, dl_vlan_pcp=color)
+        cookie = node.cookie
+        self.push_flow(datapath, cookie, FLOW_PRIORITY, ofproto.OFPFC_ADD, match, actions)
 
-    def add_flow(self, datapath, cookie, priority, command, match, actions):
+    @staticmethod
+    def push_flow(datapath, cookie, priority, command, match, actions):
         """
-             Send the FlowMod to datapath
+             Send the FlowMod to datapath. Send BarrierReq after to confirm
+             Args:
+                 datapath: switch class
+                 cookie: cookie to be used on the flow
+                 priority: flow priority
+                 command: action (Add, Delete, modify)
+                 match: flow match
+                 actions: flow action
         """
         parser = datapath.ofproto_parser
         mod = parser.OFPFlowMod(datapath=datapath, match=match, cookie=cookie,
@@ -266,43 +352,37 @@ class SDNTrace(app_manager.RyuApp):
         datapath.send_msg(mod)
         datapath.send_barrier()
 
-    def process_trace_req(self, entries):
+    def process_trace_req(self, entries, r_id):
         """
             Receives the REST/PUT to generate a PacketOut
-            data needs to be serialized
             template_trace.json is an example
-
-            entries  -
+            Args:
+                entries: entries provided by user received from REST interface
+                r_id: request ID created by sdntraceRest and sent back to user
         """
+        print 'process_trace_req'
         dpid = entries['trace']['switch']['dpid']
 
+        dpid_found = False
         for node in self.node_list:
             if dpid == node.name:
                 color = node.color
+                dpid_found = True
                 break
-        else:
+
+        # TODO: Color can not be 0
+        # TODO: If 0, return "System not ready"
+        print 'color: %s' % color
+
+
+        if dpid_found is False:
             print 'Device not found %s' % dpid
             return
 
-        in_port, pkt = trace_pkt.generate_trace_pkt(entries, color)
-
-        parser = node.obj.msg.datapath.ofproto_parser
-        datapath = node.obj.msg.datapath
-        ofproto = node.obj.msg.datapath.ofproto
-        buffer_id = ofproto.OFP_NO_BUFFER
-
         if HAS_OFPP_TABLE_SUPPORT is True:
-            actions = [parser.OFPActionOutput(ofproto.OFPP_TABLE)]
-            # ofproto.OFPP_NONE
-            out = parser.OFPPacketOut(datapath=datapath, buffer_id=buffer_id, in_port=ofproto.OFPP_NONE,
-                                      actions=actions, data=pkt.data)
-            datapath.send_msg(out)
-            print out
+            # create a thread to handle this request
+            tracing.handle_trace(self, entries, node, color, r_id)
         else:
-            brocade.send_trace_probes(node, in_port, pkt)
-
-        # Check array of packets
-        # to be developed
-        hub.sleep(5)
-        print self.trace_pktIn
-        return self.trace_pktIn[0]
+            # Find a solution for Brocade
+            brocade.send_trace_probes(self, entries, node, color, r_id)
+        return 0

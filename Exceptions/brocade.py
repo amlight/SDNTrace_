@@ -30,7 +30,7 @@ def flow_stats_reply(ev):
                (ev.msg.datapath.id, stat.match, stat.actions, stat.packet_count, stat.byte_count))
 
 
-def send_trace_probes(node, in_port, pkt):
+def send_trace_probes(obj, entries, node, color, r_id):
     parser = node.obj.msg.datapath.ofproto_parser
     datapath = node.obj.msg.datapath
     ofproto = node.obj.msg.ofproto

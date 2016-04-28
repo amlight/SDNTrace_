@@ -1,10 +1,13 @@
+
 import json
-import sdntrace
 from webob import Response
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
+from ryu.lib import hub
+import sdntrace
 
 
 sdntrace_instance_name = 'sdntrace_api_app'
+request_id = 80000
 
 
 class SDNTraceRest(sdntrace.SDNTrace):
@@ -54,17 +57,18 @@ class SDNTraceController(ControllerBase):
 
     def _switch_ports(self, req, **kwargs):
         dpid = kwargs['dpid']
+        body = "0"  # in case user requests before switch appear
         for node in self.sdntrace_app.node_list:
             if node.name == dpid:
                 ports = node.ports
-        body = json.dumps(ports)
+                body = json.dumps(ports)
         return Response(content_type='application/json', body=body)
 
     def _switch_neighbors(self, req, **kwargs):
         dpid = kwargs['dpid']
         for node in self.sdntrace_app.node_list:
             if node.name == dpid:
-                neighbors = [node.name for node in node.adjenceciesList]
+                neighbors = [node.name for node in node.adjacencies_list]
         body = json.dumps(neighbors)
         return Response(content_type='application/json', body=body)
 
@@ -79,11 +83,22 @@ class SDNTraceController(ControllerBase):
         return Response(content_type='application/json', body=body)
 
     def _trace(self, req, **kwargs):
+        """
+            Trace method.
+        """
         nodes_app = self.sdntrace_app
         new_entry = eval(req.body)
-        # Process trace
-        result = nodes_app.process_trace_req(new_entry)
-        print result
-        result_json = {'dpid': result[0], 'in_port': result[1]}
+        global request_id
+        # First, generate an ID to be send back to user
+        # This ID will be used as the data in the packet
+        request_id += 1
+        result_json = {'request_id': request_id}
         body = json.dumps(result_json)
+
+        # Process trace
+        # Find a way to create a thread
+        print 'request_id: %s' % body
+        nodes_app.process_trace_req(new_entry, request_id)
+        print 'after'
+
         return Response(content_type='application/json', body=body)

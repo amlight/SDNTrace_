@@ -3,20 +3,35 @@ from ryu.ofproto import ether
 import prepare
 
 
-def prepare_default_flow(pkt, ev):
+def prepare_default_flow(pkt, ev, vlan):
+    """
+        Prepare the LLDP for topology discovery
+        Args:
+            pkt: object SDNTrace
+            ev: event
+            vlan: VLAN used for LLDP match
+        Returns:
+            datapath, the match and actions for the FlowMod
+    """
     datapath = ev.msg.datapath
     ofproto = datapath.ofproto
     parser = datapath.ofproto_parser
     match = parser.OFPMatch(dl_dst=lldp.LLDP_MAC_NEAREST_BRIDGE,
-                            dl_type=ether.ETH_TYPE_LLDP)
+                            dl_type=ether.ETH_TYPE_LLDP,
+                            dl_vlan=vlan)
     actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
     return datapath, match, actions
 
 
-def prepare_lldp(node, port):
-    '''
-        Prepara LLDP message to be used by PacketOut
-    '''
+def prepare_lldp_packet(node, port):
+    """
+        Prepare the LLDP frame to be used by PacketOut
+        Args:
+            node: destination node
+            port: destination port
+        Returns:
+            an Ethernet+LLDP frame (data field of PacketOut)
+    """
 
     pkt = packet.Packet()
     # Generate Ethernet frame
@@ -28,7 +43,8 @@ def prepare_lldp(node, port):
 
     # Generate LLDP apcket
     dp = '%016x' % node.dpid
-    tlv_chassis_id = lldp.ChassisID(subtype=lldp.ChassisID.SUB_LOCALLY_ASSIGNED,
+    chassis_subtype = lldp.ChassisID.SUB_LOCALLY_ASSIGNED
+    tlv_chassis_id = lldp.ChassisID(subtype=chassis_subtype,
                                     chassis_id=dp)
     tlv_port_id = lldp.PortID(subtype=lldp.PortID.SUB_PORT_COMPONENT,
                               port_id=(b'%s' % port))
@@ -43,6 +59,13 @@ def prepare_lldp(node, port):
 
 
 def process_port_status(pkt, ev):
+    """
+        Adjust node_list with new ports or removing DELETED ports
+        MGS.Reasons: 0 - port added, 1 - port deleted, 2 - port modified
+        Args:
+            pkt: Object SDNTrace
+            ev: event
+    """
     msg = ev.msg
     datapath = msg.datapath
 
@@ -59,17 +82,35 @@ def process_port_status(pkt, ev):
 
 
 def remove_switch(pkt, ev):
+    """
+        Remove switch from node_list
+        If DISPATCHER is received, it means switch is not connected
+            and should be removed from node_list
+        Args:
+            pkt: SDNTrace object
+            ev: event
+
+    """
     for node in pkt.node_list:
         if ev.datapath.id is node.dpid:
             pkt.node_list.remove(node)
+            return
 
 
 def process_packetIn(pkt, ev, links):
-    '''
-        Two types of PacketIn expected
-            - LLDP: Topology Discovery
-            - Traces: VLAN_PCP set
-    '''
+    """
+        Process PacketIn - core of the SDNTrace
+        PacketIn.action will define the reason: if content is LLDP,
+            it means it is a topology discovery packet
+            if content is not, it COULD be a trace file
+        Args:
+            pkt: SDNTrace object
+            ev: event
+            links: list of links known so far
+        Returns:
+            2, pkt if not LLDP
+            1, list of current known links
+    """
     pktIn_dpid = '%016x' % ev.msg.datapath.id
     # pktIn_port = ev.msg.in_port
 
@@ -81,7 +122,6 @@ def process_packetIn(pkt, ev, links):
         return 2, pkt
 
     # Extract LLDP from PacketIn.data
-    # Check if is LLDP
     pkt_lldp = pkt.get_protocols(lldp.lldp)[0]
 
     ChassisID = pkt_lldp.tlvs[0]
@@ -95,6 +135,6 @@ def process_packetIn(pkt, ev, links):
     link = pktIn_dpid, pktOut_dpid
 
     # Keep a single record between switches
-    # It doesn't matter how many connectios between them
+    # It doesn't matter how many connections between them
     links.append(link)
     return 1, prepare.simplify_list_links(links)

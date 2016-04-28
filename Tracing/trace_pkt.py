@@ -43,7 +43,7 @@ def prepare_tp(tp, tp_src, tp_dst):
     return tp_src, tp_dst
 
 
-def generate_trace_pkt(entries, color):
+def generate_trace_pkt(entries, color, r_id):
     '''
         Receives the REST/PUT to generate a PacketOut
         data needs to be serialized
@@ -55,9 +55,13 @@ def generate_trace_pkt(entries, color):
     ip = {}
     tp = {}
 
+    print entries
+
+    # TODO Validate for dl_vlan. If empty, return error.
+
     dpid, in_port = 0, 65532
     dl_src, dl_dst = "ca:fe:ca:fe:00:00", "ca:fe:ca:fe:ca:fe"
-    dl_vlan, dl_type = 0, 2048
+    dl_vlan, dl_type = 100, 2048
     nw_src, nw_dst, nw_tos = '127.0.0.1', '127.0.0.1', 0
     tp_src, tp_dst = 1, 1
 
@@ -84,45 +88,25 @@ def generate_trace_pkt(entries, color):
 
     pkt = packet.Packet()
 
-    if dl_vlan is 0:
-        eth_pkt = ethernet.ethernet(dst=dl_dst, src=dl_src, ethertype=dl_type)
-        pkt.add_protocol(eth_pkt)
-    else:
-        eth_pkt = ethernet.ethernet(dst=dl_dst, src=dl_src, ethertype=33024)
-        vlan_pkt = vlan.vlan(vid=dl_vlan, ethertype=dl_type, pcp=int(color, 2))
-        pkt.add_protocol(eth_pkt)
-        pkt.add_protocol(vlan_pkt)
+    eth_pkt = ethernet.ethernet(dst=dl_dst, src=dl_src, ethertype=33024)
+    vlan_pkt = vlan.vlan(vid=dl_vlan, ethertype=dl_type, pcp=int(color, 2))
+    pkt.add_protocol(eth_pkt)
+    pkt.add_protocol(vlan_pkt)
 
-    if dl_type is 2048:
+    if dl_type == 2048:
+        print 'here'
         ip_pkt = ipv4.ipv4(dst=str(nw_dst), src=str(nw_src), tos=nw_tos,
                            proto=6)
         pkt.add_protocol(ip_pkt)
         tp_pkt = tcp.tcp(dst_port=tp_dst, src_port=tp_src)
         pkt.add_protocol(tp_pkt)
-        data = "jab"
+        data = str(r_id)   # this will be the ID
         pkt.add_protocol(data)
 
     pkt.serialize()
     print pkt
+    print pkt[4]
     return in_port, pkt
 
 
-def process_probe_packet(ev, pkt):
-    pktIn_dpid = '%016x' % ev.msg.datapath.id
-    pktIn_port = ev.msg.in_port
 
-    print 'process_probe'
-    pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
-    if pkt_eth.ethertype == 33024:
-        pkt_vlan = pkt.get_protocols(vlan.vlan)[0]
-        print pkt_vlan
-        if pkt_vlan.pcp is not 0:
-            # Validate to confirm it is a probe, not a user tagged packet
-            # If not a probe, generate a PacketOut to send the packet back to
-            # datapath
-            # Once validated, the the whole pkt to an array
-            print 'valid'
-            return (pktIn_dpid, pktIn_port, pkt)
-    return False
-
-    return

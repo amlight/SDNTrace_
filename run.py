@@ -1,3 +1,11 @@
-from subprocess import call
+import sys
+from ryu.cmd import manager
 
-call(["/usr/local/bin/ryu-manager", "/home/mininet/sdntrace/sdntraceRest.py"])
+
+def main():
+    sys.argv.append('sdntraceRest.py')
+    manager.main()
+
+
+if __name__ == '__main__':
+    main()
