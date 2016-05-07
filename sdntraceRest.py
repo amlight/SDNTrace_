@@ -104,7 +104,6 @@ class SDNTraceController(ControllerBase):
         # Process trace
         # Find a way to create a thread
         print 'request_id: %s' % body
-        nodes_app.process_trace_req(new_entry, request_id)
-        print 'after'
-
+        trace = nodes_app.process_trace_req(new_entry, request_id)
+        body = json.dumps(trace)
         return Response(content_type='application/json', body=body)

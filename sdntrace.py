@@ -70,8 +70,7 @@ PUSH_COLORS_INTERVAL = 10
 COLLECT_INTERVAL = 30
 HAS_OFPP_TABLE_SUPPORT = True
 VLAN_DISCOVERY = 100
-FLOW_PRIORITY = 1000
-
+FLOW_PRIORITY = 50000
 
 # TODO Print 'System Ready' once the topology was discovery
 # TODO Do not accept any request before that
@@ -153,11 +152,11 @@ class SDNTrace(app_manager.RyuApp):
         ofproto = datapath.ofproto
 
         if lldp:
-            in_port=ofproto.OFPP_NONE
-            out_port=port
+            in_port = ofproto.OFPP_NONE
+            out_port = port
         else:
-            in_port=port
-            out_port=ofproto.OFPP_TABLE
+            in_port = port
+            out_port = ofproto.OFPP_TABLE
 
         actions = [parser.OFPActionOutput(out_port)]
         buffer_id = ofproto.OFP_NO_BUFFER
@@ -210,7 +209,7 @@ class SDNTrace(app_manager.RyuApp):
         topology.remove_switch(self, ev)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def packet_in_handle(self, ev):
+    def packet_in_handler(self, ev):
         """
             Process PacketIn
             PacketIN messages are used for topology discovery and traces
@@ -259,6 +258,7 @@ class SDNTrace(app_manager.RyuApp):
 
         colors = prepare.define_color(self, self.links)
 
+        print colors, self.colors, self.old_colors
         # Compare received colors with self.old_colors
         # If the same, ignore
         if colors is not None:
@@ -268,7 +268,6 @@ class SDNTrace(app_manager.RyuApp):
             else:
                 if self.colors == self.old_colors:
                     return
-
 
         # Check all colors in use
         # For each switch:
@@ -311,7 +310,7 @@ class SDNTrace(app_manager.RyuApp):
         match = parser.OFPMatch(dl_type=0x8100, dl_vlan_pcp=color)
         cookie = node.cookie
         self.push_flow(datapath, cookie, FLOW_PRIORITY, ofproto.OFPFC_DELETE_STRICT,
-                      match, actions)
+                       match, actions)
         return
 
     def install_color(self, node, color):
@@ -331,7 +330,7 @@ class SDNTrace(app_manager.RyuApp):
         color = int(color)
         # VLANS CAN NOT BE DEFINED OR IT WILL HAVE TO BE DEFINED ON DEMAND?? Brocade CES
         # match = parser.OFPMatch(dl_type=0x8100, dl_vlan=100, dl_vlan_pcp=color)
-        match = parser.OFPMatch(dl_type=0x8100, dl_vlan_pcp=color)
+        match = parser.OFPMatch(dl_type=0x800, dl_vlan_pcp=color)
         cookie = node.cookie
         self.push_flow(datapath, cookie, FLOW_PRIORITY, ofproto.OFPFC_ADD, match, actions)
 
@@ -370,26 +369,14 @@ class SDNTrace(app_manager.RyuApp):
         print 'process_trace_req'
         dpid = entries['trace']['switch']['dpid']
 
-        dpid_found = False
-        for node in self.node_list:
-            if dpid == node.name:
-                color = node.color
-                dpid_found = True
-                break
-
-        # TODO: Color can not be 0
-        # TODO: If 0, return "System not ready"
-        print 'color: %s' % color
-
-
-        if dpid_found is False:
-            print 'Device not found %s' % dpid
-            return
+        node, color = trace_pkt.get_node_from_dpid(self.node_list, dpid)
+        if not node or not color:
+            print 'WARN: System Not Ready Yet'
+            return 0
 
         if HAS_OFPP_TABLE_SUPPORT is True:
             # create a thread to handle this request
-            tracing.handle_trace(self, entries, node, color, r_id)
+            return tracing.handle_trace(self, entries, node, color, r_id)
         else:
             # Find a solution for Brocade
-            brocade.send_trace_probes(self, entries, node, color, r_id)
-        return 0
+            return brocade.send_trace_probes(self, entries, node, color, r_id)

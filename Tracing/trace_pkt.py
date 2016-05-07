@@ -55,8 +55,6 @@ def generate_trace_pkt(entries, color, r_id):
     ip = {}
     tp = {}
 
-    print entries
-
     # TODO Validate for dl_vlan. If empty, return error.
 
     dpid, in_port = 0, 65532
@@ -95,7 +93,6 @@ def generate_trace_pkt(entries, color, r_id):
     pkt.add_protocol(vlan_pkt)
 
     if dl_type == 2048:
-        print 'here'
         ip_pkt = ipv4.ipv4(dst=str(nw_dst), src=str(nw_src), tos=nw_tos,
                            proto=6)
         pkt.add_protocol(ip_pkt)
@@ -105,9 +102,41 @@ def generate_trace_pkt(entries, color, r_id):
         pkt.add_protocol(data)
 
     pkt.serialize()
-    print pkt
-    # print pkt[4]
     return in_port, pkt
+
+
+def get_node_from_dpid(node_list, dpid):
+    for node in node_list:
+        if dpid == node.name:
+            return node, node.color
+    return 0
+
+
+def get_node_color_from_dpid(node_list, dpid):
+    for node in node_list:
+        if dpid == node.name:
+            return node, node.color
+    return 0
+
+
+def get_vlan_from_pkt(data):
+    pkt = packet.Packet(data)
+    pkt_vlan = pkt.get_protocols(vlan.vlan)[0]
+    return pkt_vlan.vid
+
+
+def prepare_next_packet(obj, entries, result, ev):
+
+    dpid =  result['trace']['dpid']
+    node, color = get_node_color_from_dpid(obj.node_list, dpid)
+
+    entries['trace']['switch']['dpid'] =  dpid
+    entries['trace']['switch']['in_port'] = ev.msg.in_port
+    entries['trace']['eth']['dl_vlan'] = get_vlan_from_pkt(ev.msg.data)
+
+    return entries, color, node
+
+
 
 
 
