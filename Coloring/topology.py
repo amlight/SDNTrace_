@@ -1,4 +1,4 @@
-from ryu.lib.packet import packet, lldp, ethernet
+from ryu.lib.packet import packet, lldp, ethernet, vlan
 from ryu.ofproto import ether
 import prepare
 
@@ -23,7 +23,7 @@ def prepare_default_flow(pkt, ev, vlan):
     return datapath, match, actions
 
 
-def prepare_lldp_packet(node, port):
+def prepare_lldp_packet(node, port, vlan_id):
     """
         Prepare the LLDP frame to be used by PacketOut
         Args:
@@ -37,9 +37,18 @@ def prepare_lldp_packet(node, port):
     # Generate Ethernet frame
     dst = lldp.LLDP_MAC_NEAREST_BRIDGE
     src = 'ca:fe:ca:fe:ca:fe'
-    ethertype = ether.ETH_TYPE_LLDP
+
+    if vlan_id > 1:
+        ethertype = ether.ETH_TYPE_8021Q
+        vlan_pkt = vlan.vlan(vid=vlan_id, ethertype=ether.ETH_TYPE_LLDP)
+    else:
+        ethertype = ether.ETH_TYPE_LLDP
+
     eth_pkt = ethernet.ethernet(dst, src, ethertype)
     pkt.add_protocol(eth_pkt)
+
+    if vlan_id > 1:
+        pkt.add_protocol(vlan_pkt)
 
     # Generate LLDP apcket
     dp = '%016x' % node.dpid
@@ -53,6 +62,7 @@ def prepare_lldp_packet(node, port):
     tlvs = (tlv_chassis_id, tlv_port_id, tlv_ttl, tlv_end)
     lldp_pkt = lldp.lldp(tlvs)
     pkt.add_protocol(lldp_pkt)
+
     pkt.serialize()
 
     return pkt
@@ -91,6 +101,10 @@ def remove_switch(pkt, ev):
             ev: event
 
     """
+    for link in pkt.links:
+        dpid = '%016x' % ev.datapath.id
+        if dpid in link:
+            pkt.links.remove(link)
     for node in pkt.node_list:
         if ev.datapath.id is node.dpid:
             pkt.node_list.remove(node)
@@ -114,11 +128,24 @@ def process_packetIn(pkt, ev, links):
     pktIn_dpid = '%016x' % ev.msg.datapath.id
     # pktIn_port = ev.msg.in_port
 
+    msg = ev.msg
+    dp = msg.datapath
+    ofp = dp.ofproto
+
+    # If it is a OFPR_NO_MATCH, it means it is not our packet
+    if ev.msg.reason == ev.msg.datapath.ofproto.OFPR_NO_MATCH:
+        return 0, 0
+
     pkt = packet.Packet(ev.msg.data)
     pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
+    next_header = pkt_eth.ethertype
+
+    if pkt_eth.ethertype == ether.ETH_TYPE_8021Q:
+        pkt_vlan = pkt.get_protocols(vlan.vlan)[0]
+        next_header = pkt_vlan.ethertype
 
     # If not LLDP, it could be a probe Packet
-    if pkt_eth.ethertype != ether.ETH_TYPE_LLDP:
+    if next_header != ether.ETH_TYPE_LLDP:
         return 2, pkt
 
     # Extract LLDP from PacketIn.data

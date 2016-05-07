@@ -74,6 +74,7 @@ def generate_trace_pkt(entries, color, r_id):
     except:
         pass
 
+
     if len(switch) > 0:
         dpid, in_port = prepare_switch(switch, dpid, in_port)
 
@@ -105,7 +106,7 @@ def generate_trace_pkt(entries, color, r_id):
 
     pkt.serialize()
     print pkt
-    print pkt[4]
+    # print pkt[4]
     return in_port, pkt
 
 

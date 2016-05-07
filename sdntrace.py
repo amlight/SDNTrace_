@@ -56,7 +56,8 @@ class OFSwitch:
         for _i in range(num_ports):
             if _i < ofproto.OFPP_MAX:
                 port = OFPPhyPort.parser(self.obj.msg.buf, offset)
-                port_list.append(port.port_no)
+                if port.port_no < 65280:  # Special ports are 65280+
+                    port_list.append(port.port_no)
                 offset += ofproto.OFP_PHY_PORT_SIZE
 
         return port_list
@@ -105,7 +106,7 @@ class SDNTrace(app_manager.RyuApp):
         while True:
             for node in self.node_list:
                 for port in node.ports:
-                    pkt = topology.prepare_lldp_packet(node, port)
+                    pkt = topology.prepare_lldp_packet(node, port, VLAN_DISCOVERY)
                     self.send_packet_out(node, port, pkt.data, True)
             hub.sleep(PACKET_OUT_INTERVAL)
 
@@ -160,13 +161,11 @@ class SDNTrace(app_manager.RyuApp):
 
         actions = [parser.OFPActionOutput(out_port)]
         buffer_id = ofproto.OFP_NO_BUFFER
+
         out = parser.OFPPacketOut(datapath=datapath, in_port=in_port,
                                   buffer_id=buffer_id, actions=actions,
                                   data=data)
         datapath.send_msg(out)
-        if not lldp:
-            print out
-        return
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -219,7 +218,10 @@ class SDNTrace(app_manager.RyuApp):
                 ev: event triggered
         """
         action, result = topology.process_packetIn(self, ev, self.links)
-        if action is 1:
+        if action is 0:
+            # NO_MATCH, ignore
+            pass
+        elif action is 1:
             self.links = result
         elif action is 2:
             # To be finished.
@@ -252,11 +254,13 @@ class SDNTrace(app_manager.RyuApp):
             Args:
                 self
         """
+        # TODO: if it is the first time, make sure the flows were not installed \
+        # TODO: in the previous executions. Delete all legacy flows (wildcard 0x2fffef)
+
         colors = prepare.define_color(self, self.links)
 
         # Compare received colors with self.old_colors
         # If the same, ignore
-
         if colors is not None:
             self.colors = colors
             if len(self.old_colors) is 0:
@@ -264,6 +268,7 @@ class SDNTrace(app_manager.RyuApp):
             else:
                 if self.colors == self.old_colors:
                     return
+
 
         # Check all colors in use
         # For each switch:
@@ -280,6 +285,8 @@ class SDNTrace(app_manager.RyuApp):
                         idx = prepare.get_node_from_name(self, key)
                         if self.node_list[idx] in node.adjacencies_list:
                             neighbor_colors.append(color[key])
+            # in some cases, if two neighbors have the same color, the same flow
+            # will be installed twice. It is not an issue.
             for color in neighbor_colors:
                 self.install_color(node, color)
             del neighbor_colors
