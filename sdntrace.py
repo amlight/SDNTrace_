@@ -95,6 +95,8 @@ class SDNTrace(app_manager.RyuApp):
         # self.active_traces = []  # list of Probes class
         self.trace_pktIn = []  # list of received PacketIn not LLDP
 
+        self.print_ready = False # Just to print System Ready once
+
     def _topology_discovery(self):
         """
             Keeps looping node_list every PACKET_OUT_INTERVAL seconds
@@ -258,7 +260,12 @@ class SDNTrace(app_manager.RyuApp):
 
         colors = prepare.define_color(self, self.links)
 
-        print colors, self.colors, self.old_colors
+        # print 'colors'
+        # print colors
+        # print 'self.colors'
+        # print self.colors
+        # print 'self.old_colors'
+        # print self.old_colors
         # Compare received colors with self.old_colors
         # If the same, ignore
         if colors is not None:
@@ -267,6 +274,9 @@ class SDNTrace(app_manager.RyuApp):
                 self.old_colors = self.colors
             else:
                 if self.colors == self.old_colors:
+                    if not self.print_ready:
+                        self.print_ready = True
+                        print 'System Ready!'
                     return
 
         # Check all colors in use
@@ -289,6 +299,9 @@ class SDNTrace(app_manager.RyuApp):
             for color in neighbor_colors:
                 self.install_color(node, color)
             del neighbor_colors
+            node.old_color = node.color
+
+        self.old_colors = self.colors
 
     def delete_colored_flows(self, node):
         """
@@ -309,8 +322,9 @@ class SDNTrace(app_manager.RyuApp):
             return
         match = parser.OFPMatch(dl_type=0x8100, dl_vlan_pcp=color)
         cookie = node.cookie
+        flags = 0
         self.push_flow(datapath, cookie, FLOW_PRIORITY, ofproto.OFPFC_DELETE_STRICT,
-                       match, actions)
+                       match, actions, flags)
         return
 
     def install_color(self, node, color):
@@ -335,7 +349,7 @@ class SDNTrace(app_manager.RyuApp):
         self.push_flow(datapath, cookie, FLOW_PRIORITY, ofproto.OFPFC_ADD, match, actions)
 
     @staticmethod
-    def push_flow(datapath, cookie, priority, command, match, actions):
+    def push_flow(datapath, cookie, priority, command, match, actions, flags=1):
         """
              Send the FlowMod to datapath. Send BarrierReq after to confirm
              Args:
@@ -346,10 +360,13 @@ class SDNTrace(app_manager.RyuApp):
                  match: flow match
                  actions: flow action
         """
+        if flags is not 0:
+            flags = datapath.ofproto.OFPFF_SEND_FLOW_REM
+
         parser = datapath.ofproto_parser
         mod = parser.OFPFlowMod(datapath=datapath, match=match, cookie=cookie,
                                 out_port=datapath.ofproto.OFPP_CONTROLLER,
-                                flags=datapath.ofproto.OFPFF_SEND_FLOW_REM,
+                                flags=flags,
                                 command=command, priority=priority,
                                 actions=actions)
         # DEBUG:
@@ -366,7 +383,7 @@ class SDNTrace(app_manager.RyuApp):
                 entries: entries provided by user received from REST interface
                 r_id: request ID created by sdntraceRest and sent back to user
         """
-        print 'process_trace_req'
+        # print 'process_trace_req'
         dpid = entries['trace']['switch']['dpid']
 
         node, color = trace_pkt.get_node_from_dpid(self.node_list, dpid)

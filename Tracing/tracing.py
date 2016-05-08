@@ -33,14 +33,18 @@ def handle_trace(obj, entries, node, color, r_id):
                 print "That is it!"
                 ended = True
             else:
-                print result
+                # print result
                 trace_result.append(result)
+                is_loop = check_loop(trace_result)
+                if is_loop:
+                    trace_result[is_loop] = 'loop'
+                    return trace_result
                 # Prepare next packet
                 prepare = trace_pkt.prepare_next_packet
                 entries, color, node = prepare(obj, entries, result, ev)
 
-                print 'entries, color'
-                print entries, color
+                #print 'entries, color'
+                #print entries, color
 
     return trace_result
 
@@ -68,9 +72,10 @@ def trace_send_packet_out(obj, node, in_port, r_id, pkt):
     while True:
         hub.sleep(1)
         ctr += 1
-        print 'len(obj.trace_pktIn) = %s' % len(obj.trace_pktIn)
+        # print 'len(obj.trace_pktIn) = %s' % len(obj.trace_pktIn)
         if len(obj.trace_pktIn) is 0:
-            if ctr > 3:
+            if ctr > 2:
+                print 'done'
                 return {'trace': 'done'}, False
             else:
                 print 'sending PacketOut again'
@@ -82,8 +87,8 @@ def trace_send_packet_out(obj, node, in_port, r_id, pkt):
                 # compate pIn.payload.data with r_id
                 if r_id == int(pIn[2]):
                     rest_result['trace'] = {'dpid': pIn[0], "port": pIn[1]}
-                    print 'result',
-                    print rest_result
+                    #print 'result',
+                    #print rest_result
                     clear_trace_pktIn(obj.trace_pktIn, r_id)
                     return rest_result, pIn[4]
 
@@ -93,6 +98,17 @@ def clear_trace_pktIn(trace_pktIn, r_id):
         if r_id == int(pIn[2]):
             trace_pktIn.remove(pIn)
 
+
+def check_loop(trace_result):
+    i = 0
+    last = len(trace_result) - 1
+    while i < last:
+        print i, last
+        if trace_result[i] == trace_result[last]:
+            print trace_result[i]['trace'], trace_result[last]['trace']
+            return last
+        i += 1
+    return 0
 
 def process_probe_packet(ev, pkt):
     """
@@ -115,7 +131,7 @@ def process_probe_packet(ev, pkt):
             # Validate to confirm it is a probe
             pkt_tcp = pkt.get_protocols(tcp.tcp)[0]
             if pkt_tcp.dst_port == 1 and pkt_tcp.src_port == 1:
-                print 'valid'
+                #print 'valid'
                 return (pktIn_dpid, pktIn_port, pkt[4], pkt, ev)
         else:
             print 'ignore'

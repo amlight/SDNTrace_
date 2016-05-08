@@ -42,6 +42,10 @@ class SDNTraceController(ControllerBase):
     def print_topology(self, req, **kwargs):
         return self._topology(req, **kwargs)
 
+    @route('sdntrace', '/sdntrace/switches/colors', methods=['GET'])
+    def print_colors(self, req, **kwargs):
+        return self._colors(req, **kwargs)
+
     @route('sdntrace', '/sdntrace/switches/traceid/{tid}', methods=['GET'])
     def print_trace_id(self, req, **kwargs):
         return self._traceid(req, **kwargs)
@@ -80,7 +84,13 @@ class SDNTraceController(ControllerBase):
                 neighbors.append(neigh.name)
             topology[node.name] = neighbors
         body = json.dumps(topology)
-        print body
+        return Response(content_type='application/json', body=body)
+
+    def _colors(self, req, **kwargs):
+        colors = {}
+        for node in self.sdntrace_app.node_list:
+            colors[node.name] = {'color': node.color, 'old_color': node.old_color}
+        body = json.dumps(colors)
         return Response(content_type='application/json', body=body)
 
     def _traceid(self, req, **kwargs):
