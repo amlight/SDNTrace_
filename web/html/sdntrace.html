@@ -1,0 +1,856 @@
+<html>
+<head>
+  <script src="https://yandex.st/highlightjs/7.3/highlight.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.3/jquery.min.js"></script>
+  <script src="http://getbootstrap.com/dist/js/bootstrap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.0/jquery.mask.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis.min.js"></script>
+
+  <link href="http://getbootstrap.com/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+  <link href="http://getbootstrap.com/assets/css/ie10-viewport-bug-workaround.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis.min.css" rel="stylesheet">
+  <style type="text/css">
+    body {
+      padding-top: 50px;
+    }
+    .panel-heading {
+      font-size: 1.3em;
+    }
+    .starter-template {
+      padding: 40px 15px;
+    }
+    /* topology */
+    #topology-panel {
+      display:none;
+    }
+    #mynetwork {
+      height: 500px;
+      border: 1px solid lightgray;
+    }
+    #render_btn {
+      margin: 20px;
+    }
+    /* end topology */
+    #switches_topology_table td {
+      font-size: 0.85em;
+    }
+    #switches_topology_table td:nth-child(1) {
+      width: 11em;
+    }
+    #switches_topology_table td:nth-child(2) {
+      width: 3em;
+    }
+    #switches_topology_text li {
+      list-style-type:none;
+    }
+    #switch-ports {
+      display:none;
+    }
+    #switch-ports-content ul {
+      padding:0;
+    }
+    #switch-ports-layer-form-content {
+      display:none;
+    }
+    #trace-result-content table {
+      font-size: 0.8em;
+    }
+    .loading-icon-div {
+      margin:0;
+      padding: 0.5em 0 0 0;
+      display:none;
+    }
+    .trace-result-panel,
+    .trace-result-content {
+      display:none;
+    }
+  </style>
+  <script>
+        // var to debug using localhost
+        var DEBUG = true;
+        // var to mock all the json calls. You must set DEBUG=true
+        var mock_json_topology = '{"0000000000000001": ["0000000000000002"], "0000000000000002": ["0000000000000001", "0000000000000003"], "0000000000000003": ["0000000000000004", "0000000000000002"], "0000000000000004": ["0000000000000003", "0000000000000005"], "0000000000000005": ["0000000000000004", "0000000000000006"], "0000000000000006": ["0000000000000005"]}';
+        var mock_json_switches = '["0000000000000003", "0000000000000005", "0000000000000004", "0000000000000002", "0000000000000006", "0000000000000001"]';
+        var mock_json_ports = '[3,2,1]';
+        var mock_json_trace = '[{"trace": {"port": 2, "dpid": "0000000000000002"}}, {"trace": {"port": 2, "dpid": "0000000000000003"}}, {"trace": {"port": 2, "dpid": "0000000000000004"}}, "loop"]';
+
+        var sdntrace = '';
+
+        var SDNTrace = function(server, port) {
+            this.server = server;
+            this.port = port;
+
+            this.switches = [];
+            this.topology = []
+
+            /**
+             * Call ajax to load the switch list.
+             */
+            this.get_switches = function() {
+                $('#switch-ports-layer-form-content').hide();
+                $('#trace-result-panel').hide();
+
+                var ajax_done = function(json) {
+                    var jsonObj;
+                    if (DEBUG) {
+                        jsonObj= jQuery.parseJSON(mock_json_switches);
+                    } else {
+                        jsonObj= json;
+                    }
+                    html_content = ""
+                    html_content += "<option>---</option>";
+                    for (var x = 0; x < jsonObj.length; x++) {
+                        html_content += "<option value='" + jsonObj[x] + "'>" + jsonObj[x] + "</option>";
+                        // storing switch values
+                        sdntrace.switches.push(jsonObj[x]);
+                    }
+
+                    $('#switches_select').html(html_content);
+
+                }
+
+                var jqxhr = $.ajax({
+                    url:"http://" + this.server + ":" + this.port + "/sdntrace/switches",
+                    crossdomain:true,
+                    dataType: 'json',
+                }).done(function(json) {
+                    ajax_done(json);
+                })
+                .fail(function() {
+                    console.log( "error" );
+                })
+                .always(function() {
+                    console.log( "complete" );
+                });
+            }
+
+            /**
+             * Call ajax to load the switch topology.
+             */
+            this.get_topology = function() {
+                // hiding topology graphic panel
+                $('#mynetwork').hide();
+
+                var ajax_done = function(json) {
+                    var jsonObj;
+                    if (DEBUG) {
+                        jsonObj= jQuery.parseJSON(mock_json_topology);
+                    } else {
+                        jsonObj= json;
+                    }
+
+                    // verify if the json is not a '{}' response
+                    if (!jQuery.isEmptyObject(jsonObj)) {
+                        $('#topology-panel').show();
+
+                        html_content = ""
+                        html_content += "<div class='row'>";
+
+                        html_content += "<div class='col-sm-12 col-md-12'>"
+                        html_content += "<table id='switches_topology_table' class='table'><tbody>"
+                        $.each( jsonObj, function( key, val ) {
+                            html_content += "<tr>"
+                            html_content += "<td>" + key + "</td>";
+                            html_content += "<td><span class='glyphicon glyphicon-arrow-right' aria-hidden='true'></span></td>";
+                            html_content += "<td>"
+
+                            var val_array = (""+val).split(",");
+                            for (x = 0; x < val_array.length; x++) {
+                                 html_content += "<li>" + val_array[x] + "</li>";
+                            }
+                            html_content += "</td></tr>"
+
+                            sdntrace.topology.push({'key': key, 'val':val});
+                        });
+                        html_content += "</tbody></table>";
+                        html_content += "</div>";
+
+                        $('#switches_topology_text').html(html_content);
+                    }
+                }
+
+                var jqxhr = $.ajax({
+                    url:"http://" + this.server + ":" + this.port + "/sdntrace/switches/topology",
+                    dataType: 'json',
+                }).done(function(json) {
+                    ajax_done(json);
+                })
+                .fail(function() {
+                    console.log( "error" );
+                })
+                .always(function() {
+                    console.log( "complete" );
+                });
+            }
+
+            /**
+             * Call ajax to load the switch's ports.
+             * Render the port values and assign the click event.
+             */
+            this.get_switch_port = function(switch_id) {
+
+                $('#switch-ports').show();
+                $('#switch-ports-layer-form-content').hide();
+                $('#trace-result-panel').hide();
+
+                var ajax_done = function(json) {
+                    var jsonObj;
+                    if (DEBUG) {
+                        jsonObj= jQuery.parseJSON(mock_json_ports);
+                    } else {
+                        jsonObj= json;
+                    }
+                    html_content = ""
+                    html_content += "<ul>";
+                    $.each( jsonObj, function( key, val ) {
+                        html_content += "<li><a href='#' class='switch-port-a'>" + val + "</a></li>";
+                    });
+                    html_content += "</ul>";
+
+                    $('#switch-ports-content').html(html_content);
+
+                    $('.switch-port-a').click(function() {
+                        $('#switch-ports-layer-form-content').show();
+                        $('#switch-ports-layer-form-content a:first').tab('show');
+                        // storing the clicked port value
+                        $('#switch_port_hidden').val($(this).html());
+                        // hide trace result panel
+                        $('#trace-result-panel').hide();
+                    });
+                }
+
+                var jqxhr = $.ajax({
+                    url:"http://" + this.server + ":" + this.port + "/sdntrace/switches/" + switch_id + "/ports",
+                    dataType: 'json',
+                }).done(function(json) {
+                    ajax_done(json);
+                })
+                .fail(function() {
+                    console.log( "error" );
+                })
+                .always(function() {
+                    console.log( "complete" );
+                });
+            }
+
+            this._build_trace_layer2_json = function() {
+                var layer2 = new Object();
+                layer2.trace = new Object();
+
+                layer2.trace.switch = new Object();
+                layer2.trace.switch.dpid = $('#switches_select').val();
+                layer2.trace.switch.in_port = $('#switch_port_hidden').val();
+                if (layer2.trace.switch.in_port) {
+                    layer2.trace.switch.in_port = parseInt(layer2.trace.switch.in_port, 10);
+                }
+
+                layer2.trace.eth = new Object();
+                layer2.trace.eth.dl_src = $('#l2_dl_src').val();
+                layer2.trace.eth.dl_dst = $('#l2_dl_dst').val();
+                layer2.trace.eth.dl_vlan = $('#l2_dl_vlan').val();
+                if (layer2.trace.eth.dl_vlan) {
+                    layer2.trace.eth.dl_vlan = parseInt(layer2.trace.eth.dl_vlan, 10);
+                }
+                layer2.trace.eth.dl_type = $('#l2_dl_type').val();
+
+                layer2 = sdntrace._remove_empty_json_values(layer2);
+                var layer2String = JSON.stringify(layer2);
+                return layer2String;
+            }
+
+            this._build_trace_layer3_json = function() {
+                var layer3 = new Object();
+                layer3.trace = new Object();
+
+                layer3.trace.switch = new Object();
+                layer3.trace.switch.dpid = $('#switches_select').val();
+                layer3.trace.switch.in_port = $('#switch_port_hidden').val();
+                if (layer3.trace.switch.in_port) {
+                    layer3.trace.switch.in_port = parseInt(layer3.trace.switch.in_port, 10);
+                }
+
+                layer3.trace.eth = new Object();
+                layer3.trace.eth.dl_vlan = $('#l3_dl_vlan').val();
+                if (layer3.trace.eth.dl_vlan) {
+                    layer3.trace.eth.dl_vlan = parseInt(layer3.trace.eth.dl_vlan, 10);
+                }
+
+                layer3.trace.ip = new Object();
+                layer3.trace.ip.nw_src = $('#l3_nw_src').val();
+                layer3.trace.ip.nw_dst = $('#l3_nw_dst').val();
+                layer3.trace.ip.nw_tos = $('#l3_nw_tos').val();
+                if (layer3.trace.ip.nw_tos) {
+                    layer3.trace.ip.nw_tos = parseInt(layer3.trace.ip.nw_tos, 10);
+                }
+
+                layer3.trace.tp = new Object();
+                layer3.trace.tp.tp_src = $('#l3_tp_src').val();
+                layer3.trace.tp.tp_dst = $('#l3_tp_dst').val();
+                if (layer3.trace.tp.tp_dst) {
+                    layer3.trace.tp.tp_dst = parseInt(layer3.trace.tp.tp_dst, 10);
+                }
+                layer3 = sdntrace._remove_empty_json_values(layer3);
+                var layer3String = JSON.stringify(layer3);
+
+                return layer3String;
+            }
+
+            this._build_trace_layerfull_json = function() {
+                var layerfull = new Object();
+                layerfull.trace = new Object();
+
+                layerfull.trace.switch = new Object();
+                layerfull.trace.switch.dpid = $('#switches_select').val();
+                layerfull.trace.switch.in_port = $('#switch_port_hidden').val();
+                if (layerfull.trace.switch.in_port) {
+                    layerfull.trace.switch.in_port = parseInt(layerfull.trace.switch.in_port, 10);
+                }
+
+                layerfull.trace.eth = new Object();
+                layerfull.trace.eth.dl_src = $('#lf_dl_src').val();
+                layerfull.trace.eth.dl_dst = $('#lf_dl_dst').val();
+                layerfull.trace.eth.dl_vlan = $('#lf_dl_vlan').val();
+                if (layerfull.trace.eth.dl_vlan) {
+                    layerfull.trace.eth.dl_vlan = parseInt(layerfull.trace.eth.dl_vlan, 10);
+                }
+                layerfull.trace.eth.dl_type = $('#lf_dl_type').val();
+
+                layerfull.trace.ip = new Object();
+                layerfull.trace.ip.nw_src = $('#lf_nw_src').val();
+                layerfull.trace.ip.nw_dst = $('#lf_nw_dst').val();
+                layerfull.trace.ip.nw_tos = $('#lf_nw_tos').val();
+                if (layerfull.trace.ip.nw_tos) {
+                    layerfull.trace.ip.nw_tos = parseInt(layerfull.trace.ip.nw_tos, 10);
+                }
+                layerfull.trace.tp = new Object();
+                layerfull.trace.tp.tp_src = $('#lf_tp_src').val();
+                layerfull.trace.tp.tp_dst = $('#lf_tp_dst').val();
+                if (layerfull.trace.tp.tp_dst) {
+                    layerfull.trace.tp.tp_dst = parseInt(layerfull.trace.tp.tp_dst, 10);
+                }
+
+                layerfull = sdntrace._remove_empty_json_values(layerfull);
+                var layerfullString = JSON.stringify(layerfull);
+
+                return layerfullString;
+            }
+            this._remove_empty_json_values = function(obj) {
+                for (var i in obj) {
+                    for (var j in obj[i]) {
+                        for (var w in obj[i][j]) {
+                            if (obj[i][j][w] === null || obj[i][j][w] == '') {
+                                delete obj[i][j][w];
+                            }
+                        }
+                        if (jQuery.isEmptyObject(obj[i][j])) {
+                            delete obj[i][j];
+                        }
+                    }
+                    if (jQuery.isEmptyObject(obj[i])) {
+                        delete obj[i];
+                    }
+                }
+                return obj;
+            }
+
+            /**
+             * Call ajax to trace.
+             * Param:
+             *    json_data: Data in json String format to send as PUT method.
+             */
+            this.trace_port = function(json_data) {
+                $('#trace-result-content').html('');
+                $('.loading-icon-div').show();
+
+                var ajax_done = function(json) {
+                    var jsonObj;
+                    if (DEBUG) {
+                        jsonObj= jQuery.parseJSON(mock_json_trace);
+                    } else {
+                        jsonObj= json;
+                    }
+                    html_content = ""
+                    html_content += "<div class='row'><div class='col-sm-12'>Trace result: </div></div><div class='row'>";
+                    html_content += "<div class='col-sm-10 col-md-5'><table class='table table-striped'>"
+                    html_content += "<thead><tr><th>DPID</th><td>port</th></tr></thead>"
+                    html_content += "<tbody>"
+                    $.each( jsonObj, function( key, val ) {
+                        if (val == 'loop') {
+                            html_content += "<tr><td>" + val + "</td></tr>";
+                        } else {
+                            html_content += "<tr><td>" + val['trace']['dpid'] + "</td>"
+                            html_content += "<td>" + val['trace']['port'] + "</td></tr>";
+                        }
+                    });
+                    html_content += "</tbody></table></div></div>";
+
+                    $('#trace-result-content').html(html_content);
+                }
+
+                var jqxhr = $.ajax({
+                    url:"http://" + this.server + ":" + this.port + "/sdntrace/trace",
+                    type: 'PUT',
+                    dataType: 'json',
+                    data: json_data
+                }).done(function(json) {
+                    ajax_done(json);
+                })
+                .fail(function() {
+                    console.log( "error" );
+                    if (DEBUG) {
+                        ajax_done();
+                    } else {
+                        $('#trace-result-content').html("<div class='bg-danger'>Trace error.</div>");
+                    }
+                })
+                .always(function() {
+                    $('.loading-icon-div').hide();
+                    $('#trace-result-panel').show();
+                });
+            }
+        }
+
+        /**
+         * Render topology using topology data saved in sdntrace object.
+         * It uses the vis.js graph library.
+         * You must load the sdntrace switch and topology data before trying to render the topology.
+         */
+        this.render_topology = function() {
+            // create an array with nodes
+            var nodesArray = [];
+            for (x = 0; x < sdntrace.switches.length; x++) {
+                node_id = sdntrace.switches[x].substring(1,16);
+                nodesArray.push({id: node_id, label:sdntrace.switches[x], x:0, y:0, physics:true});
+            }
+            nodes = new vis.DataSet(nodesArray);
+
+            // create an array with edges
+            var edgesArray = [];
+            for (x = 0; x < sdntrace.topology.length; x++) {
+                for (y = 0; y < sdntrace.topology[x]['val'].length; y++) {
+                    node_from_id = sdntrace.topology[x]['key'].substring(1,16);
+                    node_to_id = sdntrace.topology[x]['val'][y].substring(1,16);
+                    edgesArray.push({id:x+'_'+y, from: node_from_id, to: node_to_id, arrows:'to', "smooth": {"type": "dynamic"}});
+                }
+            }
+            edges = new vis.DataSet(edgesArray);
+
+            // create a network
+            var container = document.getElementById('mynetwork');
+            var data = {
+                nodes: nodes,
+                edges: edges
+            };
+            var options = {
+                "edges": {
+                    "smooth": {
+                      "forceDirection": "none"
+                    }
+                  },
+                  "physics": {
+                    "barnesHut": {
+                      "springLength": 175
+                    },
+                    "minVelocity": 0.75
+                  }
+            }
+            var network = new vis.Network(container, data, options);
+
+            function setTheData() {
+                nodes = new vis.DataSet(nodesArray);
+                edges = new vis.DataSet(edgesArray);
+                network.setData({nodes:nodes, edges:edges})
+            }
+            function resetAllNodes() {
+                nodes.clear();
+                edges.clear();
+                nodes.add(nodesArray);
+                edges.add(edgesArray);
+           }
+
+            var changeOptions = function(){
+                var newColor = '#' + Math.floor((Math.random() * 255 * 255 * 255)).toString(16);
+                /*
+                edges.update([{id:'1', color:'black'}]);
+                edges.update([{id:'2', color:'darkred'}]);
+                edges.update([{id:'3', color:'darkblue'}]);
+                edges.update([{id:'4', color:'cyan'}]);
+                edges.update([{id:'5', color:'gray'}]);
+                edges.update([{id:'6', color:'brown'}]);
+                edges.update([{id:'7', color:'green'}]);
+                */
+          }
+        }
+
+        /* Form validation. */
+        var _initialize_form_validation = function(){
+            $('#l3_nw_src').mask('099.099.099.099');
+            $('#l3_nw_dst').mask('099.099.099.099');
+            $('#lf_nw_src').mask('099.099.099.099');
+            $('#lf_nw_dst').mask('099.099.099.099');
+        }
+
+        /* Initial data lod */
+        /* Call ajax to load switches and topology */
+        var _initial_data_load = function() {
+            // Clearing contents
+            $('#switches_select').html("<option>---</option>");
+            $('#switch-ports-content').html('');
+            $('#switches_topology_text').html('');
+
+            // Hiding panels
+            $('#switch-ports').hide();
+            $('#trace-result-panel').hide();
+            $('#topology-panel').hide();
+            $('#mynetwork').hide();
+
+            render_topology();
+
+            // load switches data
+            sdntrace.get_switches();
+            // load topology data
+            sdntrace.get_topology();
+        }
+
+        /* Initial load */
+        $(function() {
+            DEBUG = false;
+
+            if (DEBUG) {
+                $('#sdn-server-ip').val('127.0.0.1');
+                $('#sdn-server-port').val('8080');
+                sdntrace = new SDNTrace('127.0.0.1', 8080);
+            } else {
+                $('#sdn-server-ip').val('127.0.0.1');
+                $('#sdn-server-port').val('8080');
+                sdntrace = new SDNTrace('127.0.0.1', 8080);
+            }
+
+            $('#render_btn').click(function() {
+                $('#mynetwork').show();
+                render_topology();
+            });
+            $('#switches_select').change(function() {
+                sdntrace.get_switch_port($('#switches_select').val());
+            });
+
+            $('#layer2_btn').click(function() {
+                jsonStr = sdntrace._build_trace_layer2_json();
+                sdntrace.trace_port(jsonStr);
+            });
+            $('#layer3_btn').click(function() {
+                jsonStr = sdntrace._build_trace_layer3_json();
+                sdntrace.trace_port(jsonStr);
+            });
+            $('#layerfull_btn').click(function() {
+                jsonStr = sdntrace._build_trace_layerfull_json();
+                sdntrace.trace_port(jsonStr);
+            });
+            $('#sdn-server-reload-btn').click(function() {
+                sdntrace = new SDNTrace($('#sdn-server-ip').val(), $('#sdn-server-port').val());
+                _initial_data_load();
+            });
+            $('#sdn-server-ip').keypress(function(e) {
+                if (e.which == 13) {
+                    $('#sdn-server-reload-btn').click();
+                }
+            });
+
+            // initialize form validators
+            _initialize_form_validation();
+
+            // initial data load
+            _initial_data_load();
+        });
+  </script>
+</head>
+<body>
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">SDNTrace</a>
+        </div>
+        <div id="navbar" class="collapse navbar-collapse">
+          <ul class="nav navbar-nav">
+            <li class="active"><a href="#">Home</a></li>
+            <li><a href="#about" data-toggle="modal" data-target="#gridSystemModal">About</a></li>
+          </ul>
+        </div><!--/.nav-collapse -->
+      </div>
+    </nav>
+
+    <div class="container">
+      <div class="starter-template">
+        <div class="panel panel-default">
+            <div class="panel-body">
+                SDNTrace Server IP: <input type="text" name="sdn-server-ip" id="sdn-server-ip">
+                port: <input type="text" name="sdn-server-port" id="sdn-server-port">
+                <input type="button" id="sdn-server-reload-btn" value="Reload">
+            </div>
+        </div>
+        <div class="panel panel-default">
+            <div class="panel-heading">Switches</div>
+            <div class="panel-body">
+                <!-- Switches list -->
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="col-md-2">
+                            <label for="switches_select">Switches:</label>
+                        </div>
+                        <select id="switches_select">
+                            <option>----</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="switch-ports" class="row">
+                    <!-- Ports list -->
+                    <div id="switch-ports-heading" class="col-md-12">
+                        <div class="col-md-2">
+                            <label>Ports:</label>
+                        </div>
+                        <input type="hidden" name="switch_port_hidden" id="switch_port_hidden" >
+                        <div id="switch-ports-content" class="col-md-10"></div>
+                    </div>
+                    <!-- Trace forms -->
+                    <div id="switch-ports-layer-form-content" class="col-md-12 form-horizontal">
+                        <div>
+                          <!-- Nav tabs -->
+                          <ul class="nav nav-tabs" role="tablist">
+                            <li role="presentation" class="active"><a href="#trace-layer-2" aria-controls="trace-layer-2" role="tab" data-toggle="tab">Trace Layer 2</a></li>
+                            <li role="presentation"><a href="#trace-layer-3" aria-controls="trace-layer-3" role="tab" data-toggle="tab">Trace Layer 3</a></li>
+                            <li role="presentation"><a href="#trace-layer-full" aria-controls="trace-layer-full" role="tab" data-toggle="tab">Trace Full</a></li>
+                          </ul>
+
+                          <!-- Tab panes -->
+                          <div class="tab-content">
+
+                            <!-- Tab panes - Form layer 2 trace -->
+                            <div role="tabpanel" class="tab-pane active" id="trace-layer-2">
+                                <div class="panel panel-default">
+                                    <div class="panel-body">
+                                        <form id="maskFormLayer2" method="post" class="form-horizontal">
+                                            <div class="form-group">
+                                                <label for="l2_dl_src" class="col-sm-2 control-label">MAC Origem</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="l2_dl_src" name="l2_dl_src" placeholder="MAC Origem">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="l2_dl_dst" class="col-sm-2 control-label">MAC Destino</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="l2_dl_dst" name="l2_dl_dst" placeholder="MAC Destino">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="l2_dl_vlan" class="col-sm-2 control-label">VLAN</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="l2_dl_vlan" name="l2_dl_vlan" placeholder="VLAN">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="l2_dl_type" class="col-sm-2 control-label">Ethertype</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="l2_dl_type" name="l2_dl_type" placeholder="Ethertype">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <div class="col-sm-offset-2 col-sm-2">
+                                                    <button type="button" class="btn btn-default" id="layer2_btn">Trace Layer 2</button>
+                                                </div>
+                                                <div class="col-sm-8 loading-icon-div">
+                                                    <img src="./ajax-loader.gif" />
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Tab panes - Form layer 3 trace -->
+                            <div role="tabpanel" class="tab-pane" id="trace-layer-3">
+                                <div class="panel panel-default">
+                                    <div class="panel-body">
+                                        <form id="maskFormLayer3" method="post" class="form-horizontal">
+                                            <div class="form-group">
+                                                <label for="l3_dl_vlan" class="col-sm-2 control-label">VLAN</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="l3_dl_vlan" name="l3_dl_vlan" placeholder="VLAN">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="l3_nw_src" class="col-sm-2 control-label">IP de Origem</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control ip_address" type="text" id="l3_nw_src" name="l3_nw_src" placeholder="IP de Origem">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="l3_nw_dst" class="col-sm-2 control-label">IP de Destino</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control ip_address" type="text" id="l3_nw_dst" name="l3_nw_dst" placeholder="IP de Destino">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="l3_nw_tos" class="col-sm-2 control-label">TOS</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="l3_nw_tos" name="l3_nw_tos" placeholder="TOS">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="l3_tp_src" class="col-sm-2 control-label">TCP de Origem</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="l3_tp_src" name="l3_tp_src" placeholder="TCP de Origem">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="l3_tp_dst" class="col-sm-2 control-label">TCP de Destino</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="l3_tp_dst" name="l3_tp_dst" placeholder="TCP de Destino">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <div class="col-sm-offset-2 col-sm-2">
+                                                    <button type="button" class="btn btn-default" id="layer3_btn">Trace Layer 3</button>
+                                                </div>
+                                                <div class="col-sm-8 loading-icon-div">
+                                                    <img src="./ajax-loader.gif" />
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Tab panes - Form full trace -->
+                            <div role="tabpanel" class="tab-pane" id="trace-layer-full">
+                                <div class="panel panel-default">
+                                    <div class="panel-body">
+                                        <form id="maskFormLayerFull" method="post" class="form-horizontal">
+                                            <div class="form-group">
+                                                <label for="lf_dl_src" class="col-sm-2 control-label">MAC Origem</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="lf_dl_src" name="lf_dl_src" placeholder="MAC Origem">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="lf_dl_dst" class="col-sm-2 control-label">MAC Destino</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="lf_dl_dst" name="lf_dl_dst" placeholder="MAC Destino">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="lf_dl_vlan" class="col-sm-2 control-label">VLAN</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="lf_dl_vlan" name="lf_dl_vlan" placeholder="VLAN">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="lf_dl_type" class="col-sm-2 control-label">Ethertype</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="lf_dl_type" name="lf_dl_type" placeholder="Ethertype">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="lf_nw_src" class="col-sm-2 control-label ip_address">IP de Origem</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="lf_nw_src" name="lf_nw_src" placeholder="IP de Origem">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="lf_nw_dst" class="col-sm-2 control-label ip_address">IP de Destino</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="lf_nw_dst" name="lf_nw_dst" placeholder="IP de Destino">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="lf_nw_tos" class="col-sm-2 control-label">TOS</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="lf_nw_tos" name="lf_nw_tos" placeholder="TOS">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="lf_tp_src" class="col-sm-2 control-label">TCP de Origem</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="lf_tp_src" name="lf_tp_src" placeholder="TCP de Origem">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="lf_tp_dst" class="col-sm-2 control-label">TCP de Destino</label>
+                                                <div class="col-sm-10">
+                                                    <input class="form-control" type="text" id="lf_tp_dst" name="lf_tp_dst" placeholder="TCP de Destino">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <div class="col-sm-offset-2 col-sm-10">
+                                                    <button type="button" class="btn btn-default" id="layerfull_btn">Trace Full</button>
+                                                </div>
+                                                <div class="col-sm-8 loading-icon-div">
+                                                    <img src="./ajax-loader.gif" />
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                              <div class="panel panel-default" id="trace-result-panel">
+                                <div class="panel-body">
+                                    <div id="trace-result-content">
+                                    </div>
+                                </div>
+                              </div>
+                          </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="topology-panel" class="panel panel-default">
+            <div class="panel-heading">Topology</div>
+            <div class="panel-body">
+                <div class="row">
+                    <div id="switches_topology_text" class="col-md-12">
+                        <!-- dynamic content -->
+                    </div>
+                </div>
+                <div class="row">
+                    <input type="button" value="Render topology" id="render_btn" >
+                </div>
+                <div class="row">
+                    <div id="mynetwork" class="col-md-12">
+                        <div class="vis-network" tabindex="900" style="position: relative; overflow: hidden; touch-action: pan-y; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;">
+                            <canvas width="500" height="500" style="position: relative; touch-action: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+      </div>
+    </div><!-- /.container -->
+
+    <div id="gridSystemModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="gridSystemModalLabel">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title" id="gridSystemModalLabel">SDNTrace</h4>
+          </div>
+          <div class="modal-body">
+            <div class="row">
+              <div class="col-md-12">
+                  The SDNTrace was written by Jeronimo Bezerra and the source-code's available in <a href="https://github.com/jab1982/SDNTrace">GitHub</a>.
+
+              </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          </div>
+        </div><!-- /.modal-content -->
+      </div><!-- /.modal-dialog -->
+    </div><!-- /.modal -->
+
+</body>
+</html>

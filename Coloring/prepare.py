@@ -1,4 +1,4 @@
-from coloring import Coloring
+from Coloring import Coloring
 
 
 def simplify_list_links(links):

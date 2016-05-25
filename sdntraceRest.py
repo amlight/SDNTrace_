@@ -54,10 +54,40 @@ class SDNTraceController(ControllerBase):
     def run_trace(self, req, **kwargs):
         return self._trace(req, **kwargs)
 
+    @route('sdntrace', '/sdntrace/trace', methods=['OPTIONS'])
+    def run_trace_options(self, req, **kwargs):
+        """
+        Receive OPTIONS in case of cross-site ajax calls.
+        Returning the correct CORS headers allowing the cross-site request using PUT.
+        """
+        #Access - Control - Request - Method
+        response = Response(content_type='application/json', body='')
+        response = self._add_CORS_hearder(response)
+        return response
+
+    @route('sdntrace', '/sdntrace/sdntrace.html', methods=['GET'])
+    def run_load_content(self, req, **kwargs):
+        return self._load_content(req, "./web/html/sdntrace.html", **kwargs)
+    @route('sdntrace', '/sdntrace/ajax-loader.gif', methods=['GET'])
+    def run_load_image(self, req, **kwargs):
+        return self._load_image(req, "./web/html/ajax-loader.gif", **kwargs)
+
+
+    def _add_CORS_hearder(self, response):
+        # CORS headers
+        response.headers.update({
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT',
+            'Access-Control-Max-Age': '86400'
+        })
+        return response
+
     def _switches(self, req, **kwargs):
         sws = [node.name for node in self.sdntrace_app.node_list]
         body = json.dumps(sws)
-        return Response(content_type='application/json', body=body)
+        response = Response(content_type='application/json', body=body)
+        response = self._add_CORS_hearder(response)
+        return response
 
     def _switch_ports(self, req, **kwargs):
         dpid = kwargs['dpid']
@@ -66,7 +96,9 @@ class SDNTraceController(ControllerBase):
             if node.name == dpid:
                 ports = node.ports
                 body = json.dumps(ports)
-        return Response(content_type='application/json', body=body)
+        response = Response(content_type='application/json', body=body)
+        response = self._add_CORS_hearder(response)
+        return response
 
     def _switch_neighbors(self, req, **kwargs):
         dpid = kwargs['dpid']
@@ -74,7 +106,9 @@ class SDNTraceController(ControllerBase):
             if node.name == dpid:
                 neighbors = [node.name for node in node.adjacencies_list]
         body = json.dumps(neighbors)
-        return Response(content_type='application/json', body=body)
+        response = Response(content_type='application/json', body=body)
+        response = self._add_CORS_hearder(response)
+        return response
 
     def _topology(self, req, **kwargs):
         topology = {}
@@ -84,19 +118,25 @@ class SDNTraceController(ControllerBase):
                 neighbors.append(neigh.name)
             topology[node.name] = neighbors
         body = json.dumps(topology)
-        return Response(content_type='application/json', body=body)
+        response = Response(content_type='application/json', body=body)
+        response = self._add_CORS_hearder(response)
+        return response
 
     def _colors(self, req, **kwargs):
         colors = {}
         for node in self.sdntrace_app.node_list:
             colors[node.name] = {'color': node.color, 'old_color': node.old_color}
         body = json.dumps(colors)
-        return Response(content_type='application/json', body=body)
+        response = Response(content_type='application/json', body=body)
+        response = self._add_CORS_hearder(response)
+        return response
 
     def _traceid(self, req, **kwargs):
         traceid = ""
         body = json.dumps(traceid)
-        return Response(content_type='application/json', body=body)
+        response = Response(content_type='application/json', body=body)
+        response = self._add_CORS_hearder(response)
+        return response
 
     def _trace(self, req, **kwargs):
         """
@@ -116,4 +156,24 @@ class SDNTraceController(ControllerBase):
         print 'request_id: %s' % body
         trace = nodes_app.process_trace_req(new_entry, request_id)
         body = json.dumps(trace)
-        return Response(content_type='application/json', body=body)
+        response = Response(content_type='application/json', body=body)
+        response = self._add_CORS_hearder(response)
+        return response
+
+    def _load_content(self, req, html_path, **kwargs):
+        """
+        Load web content (html).
+        """
+        res = Response(content_type="text/html")
+        res.body = open(html_path, 'rb').read()
+
+        return res
+
+    def _load_image(self, req, image_path, **kwargs):
+        """
+        Load web image.
+        """
+        res = Response(content_type="image/gif")
+        res.body = open(image_path, 'rb').read()
+
+        return res
