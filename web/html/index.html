@@ -28,7 +28,8 @@
       height: 500px;
       border: 1px solid lightgray;
     }
-    #get_colors_btn,
+    #render_colors_btn,
+    #render_trace_btn,
     #render_btn {
       margin: 0 0 0 20px;
     }
@@ -92,13 +93,15 @@
         var mock_json_trace = '[{"trace": {"port": 2, "dpid": "0000000000000002"}}, {"trace": {"port": 2, "dpid": "0000000000000003"}}, {"trace": {"port": 2, "dpid": "0000000000000004"}}, "loop"]';
 
         var sdntrace = '';
-        var sdnColor = '';
+        var sdncolor = '';
 
         /**
          * SDNColor utility to transform SDN color codes to CSS names.
          */
         var SDNColor = function() {
             this.colors = {'1':'darkseagreen', '10':'dodgerblue', '11':'chocolate', '100':'darkorange', '101':'darkviolet', '110':'darkturquoise', '111':'black' }
+            this.trace_color_on = '#1AC91A';
+            this.trace_color_off = '#8EB5EA';
 
             /**
              * Get color CSS name.
@@ -120,6 +123,7 @@
             this.switches = [];
             this.topology = [];
             this.switch_colors = [];
+            this.trace = [];
 
             /**
              * Return switch color object {'color', 'old_color'} given a switch ID.
@@ -155,6 +159,7 @@
              */
             this.render_html_topology = function() {
                 if (sdntrace.topology) {
+                    $('#mynetwork').show();
                     $('#topology-panel').show();
 
                     html_content = ""
@@ -166,8 +171,8 @@
                         html_content += "<td>" + sdntrace.topology[x]['key'];
                         if (sdntrace.switch_colors && sdntrace.switch_colors.length > 0) {
                             var obj_color = sdntrace.get_switch_color(sdntrace.topology[x]['key']);
-                            html_content += "</td><td><span style='color:" + sdnColor.get_color(obj_color['color']) +"'>" + obj_color['color'] + "</span>";
-                            html_content += " (<span style='color:" + sdnColor.get_color(obj_color['old_color']) +"'>" + obj_color['old_color'] + "</span>) ";
+                            html_content += "</td><td><span style='color:" + sdncolor.get_color(obj_color['color']) +"'>" + obj_color['color'] + "</span>";
+                            html_content += " (<span style='color:" + sdncolor.get_color(obj_color['old_color']) +"'>" + obj_color['old_color'] + "</span>) ";
                         } else {
                             html_content += "</td><td>";
                         }
@@ -186,8 +191,8 @@
                                 html_content += "</td><td>";
                                 for (var y = 0; y < val_array.length; y++) {
                                     var obj_color = sdntrace.get_switch_color(val_array[y]);
-                                    html_content += "<li><span style='color:" + sdnColor.get_color(obj_color['color']) +"'>" + obj_color['color'] + "</span>";
-                                    html_content += " (<span style='color:" + sdnColor.get_color(obj_color['old_color']) +"'>" + obj_color['old_color'] + "</span>) </li>";
+                                    html_content += "<li><span style='color:" + sdncolor.get_color(obj_color['color']) +"'>" + obj_color['color'] + "</span>";
+                                    html_content += " (<span style='color:" + sdncolor.get_color(obj_color['old_color']) +"'>" + obj_color['old_color'] + "</span>) </li>";
                                 }
                             } else {
                                 html_content += "</td><td>";
@@ -205,7 +210,7 @@
             /**
              * Call ajax to load the switch list with colors.
              */
-            this.get_switch_colors = function() {
+            this.call_get_switch_colors = function() {
 
                 var jqxhr = $.ajax({
                     url:"/sdntrace/switches/colors",
@@ -215,8 +220,8 @@
                     $.each( jsonObj, function( key, val ) {
                         sdntrace.switch_colors.push({'key': key, 'val':val});
                     });
-
                     sdntrace.render_html_topology();
+                    vislib.render_topology_colors();
                 })
                 .fail(function() {
                     console.log( "error" );
@@ -229,7 +234,7 @@
             /**
              * Call ajax to load the switch list.
              */
-            this.get_switches = function() {
+            this.call_get_switches = function() {
                 $('#switch-ports-layer-form-content').hide();
                 $('#trace-result-panel').hide();
 
@@ -265,7 +270,7 @@
             /**
              * Call ajax to load the switch topology.
              */
-            this.get_topology = function() {
+            this.call_get_topology = function() {
                 // hiding topology graphic panel
                 $('#mynetwork').hide();
 
@@ -306,7 +311,7 @@
              * Call ajax to load the switch's ports.
              * Render the port values and assign the click event.
              */
-            this.get_switch_port = function(switch_id) {
+            this.call_get_switch_port = function(switch_id) {
 
                 $('#switch-ports').show();
                 $('#switch-ports-layer-form-content').hide();
@@ -489,7 +494,7 @@
              * Param:
              *    json_data: Data in json String format to send as PUT method.
              */
-            this.trace_port = function(json_data) {
+            this.call_trace_port = function(json_data) {
                 $('#trace-result-content').html('');
                 $('.loading-icon-div').show();
 
@@ -500,6 +505,11 @@
                     } else {
                         jsonObj= json;
                     }
+
+                    sdntrace.trace = [];
+                    // storing first element of trace;
+                    sdntrace.trace.push({id:$('#switches_select').val(), port:$('#switch_port_hidden').val()});
+
                     html_content = ""
                     html_content += "<div class='row'><div class='col-sm-12'>Trace result: </div></div><div class='row'>";
                     html_content += "<div class='col-sm-10 col-md-5'><table class='table table-striped'>"
@@ -508,9 +518,12 @@
                     $.each( jsonObj, function( key, val ) {
                         if (val == 'loop') {
                             html_content += "<tr><td>" + val + "</td></tr>";
+                            // looping switch;
+                            sdntrace.trace.push({id:$('#switches_select').val()});
                         } else {
                             html_content += "<tr><td>" + val['trace']['dpid'] + "</td>"
                             html_content += "<td>" + val['trace']['port'] + "</td></tr>";
+                            sdntrace.trace.push({id:val['trace']['dpid'], port:val['trace']['port']});
                         }
                     });
                     html_content += "</tbody></table></div></div>";
@@ -541,70 +554,120 @@
             }
         }
 
-        /**
-         * Render topology using topology data saved in sdntrace object.
-         * It uses the vis.js graph library.
-         * You must load the sdntrace switch and topology data before trying to render the topology.
-         */
-        this.render_topology = function() {
-            // create an array with nodes
-            var nodesArray = [];
-            for (x = 0; x < sdntrace.switches.length; x++) {
-                node_id = sdntrace.switches[x].substring(1,16);
 
-                node_obj = {id: node_id, label:sdntrace.switches[x], x:0, y:0, physics:true};
-                if (sdntrace.switch_colors && sdntrace.switch_colors.length > 0) {
-                    color_code = sdntrace.get_switch_color(sdntrace.switches[x])['color']
-                    node_obj.color = sdnColor.get_color(color_code);
-                }
-                nodesArray.push(node_obj);
+        var VIS = function() {
+            this.nodes = null;
+            this.edges = null;
+            /**
+             * Render topology using topology data saved in sdntrace object.
+             * It uses the vis.js graph library.
+             * You must load the sdntrace switch and topology data before trying to render the topology.
+             */
+            this.render_topology = function() {
+                this._render_network(false, false);
             }
-            nodes = new vis.DataSet(nodesArray);
-
-            // create an array with edges
-            var edgesArray = [];
-            for (x = 0; x < sdntrace.topology.length; x++) {
-                for (y = 0; y < sdntrace.topology[x]['val'].length; y++) {
-                    node_from_id = sdntrace.topology[x]['key'].substring(1,16);
-                    node_to_id = sdntrace.topology[x]['val'][y].substring(1,16);
-                    edgesArray.push({id:x+'_'+y, from: node_from_id, to: node_to_id, arrows:'to', "smooth": {"type": "dynamic"}});
-                }
+            this.render_topology_colors = function() {
+                this._render_network(true, false);
             }
-            edges = new vis.DataSet(edgesArray);
+            this.render_topology_trace = function() {
+                this._render_network(false, true);
+            }
 
-            // create a network
-            var container = document.getElementById('mynetwork');
-            var data = {
-                nodes: nodes,
-                edges: edges
-            };
-            // network physics
-            var options = {
-                "edges": {
-                    "smooth": {
-                      "forceDirection": "none"
+            this._render_network = function(with_colors, with_trace) {
+                with_colors = typeof with_colors !== 'undefined' ? with_colors : true;
+                with_trace = typeof with_trace !== 'undefined' ? with_trace : true;
+
+                this.resetAllNodes();
+                // create an array with nodes
+                var nodesArray = [];
+                for (x = 0; x < sdntrace.switches.length; x++) {
+                    node_id = sdntrace.switches[x].substring(1,16);
+
+                    node_obj = {id: node_id, label:sdntrace.switches[x], x:0, y:0, physics:true};
+                    if (with_trace && sdntrace.trace && sdntrace.trace.length > 1) {
+                        node_obj.color = sdncolor.trace_color_off;
+                        for (y = 0; y < sdntrace.trace.length; y++) {
+                            if (sdntrace.trace[y].id ==  sdntrace.switches[x]) {
+                                node_obj.color = sdncolor.trace_color_on;
+                            }
+                        }
                     }
-                  },
-                  "physics": {
-                    "barnesHut": {
-                      "springLength": 175
-                    },
-                    "minVelocity": 0.75
-                  }
-            }
-            var network = new vis.Network(container, data, options);
+                    if (with_colors && sdntrace.switch_colors && sdntrace.switch_colors.length > 0) {
+                        color_code = sdntrace.get_switch_color(sdntrace.switches[x])['color']
+                        node_obj.color = sdncolor.get_color(color_code);
+                    }
 
-            function setTheData() {
-                nodes = new vis.DataSet(nodesArray);
-                edges = new vis.DataSet(edgesArray);
-                network.setData({nodes:nodes, edges:edges})
+                    if (typeof(node_obj.color)==='undefined') {
+                        node_obj.color = sdncolor.trace_color_off;
+                    }
+                    nodesArray.push(node_obj);
+                }
+                console.log(nodesArray);
+                this.nodes = new vis.DataSet(nodesArray);
+
+                // create an array with edges
+                var edgesArray = [];
+                for (x = 0; x < sdntrace.topology.length; x++) {
+                    for (y = 0; y < sdntrace.topology[x]['val'].length; y++) {
+                        node_from_id = sdntrace.topology[x]['key'].substring(1,16);
+                        node_to_id = sdntrace.topology[x]['val'][y].substring(1,16);
+                        edgeObj = {id:x+'_'+y, from: node_from_id, to: node_to_id, arrows:'to', smooth: {type: "dynamic"}};
+                        if (with_trace) {
+                            edgeObj.color = sdncolor.trace_color_off;
+                        }
+                        edgesArray.push(edgeObj);
+                    }
+                }
+                // initializing x var with 1 to get the first 2 elements
+                if (with_trace) {
+                    for (x = 1; x < sdntrace.trace.length; x++) {
+                        node_from_id = sdntrace.trace[x-1].id.substring(1,16);
+                        node_to_id = sdntrace.trace[x].id.substring(1,16);
+                        label = ''
+                        if (sdntrace.trace[x-1].port) {
+                            label += sdntrace.trace[x-1].port + "/";
+                        }
+                        if (sdntrace.trace[x].port) {
+                            label += sdntrace.trace[x].port;
+                        }
+                        edgeObj = {id:'T'+x+'_'+y, from: node_from_id, to: node_to_id, label:label, arrows:'to', smooth: {type: "dynamic"}, color:sdncolor.trace_color_on};
+                        edgesArray.push(edgeObj);
+                    }
+                }
+                this.edges = new vis.DataSet(edgesArray);
+
+                // create a network
+                var container = document.getElementById('mynetwork');
+                var data = {
+                    nodes: this.nodes,
+                    edges: this.edges
+                };
+                // network physics
+                var options = {
+                    "edges": {
+                        "smooth": {
+                          "forceDirection": "none"
+                        }
+                      },
+                      "physics": {
+                        "barnesHut": {
+                          "springLength": 175
+                        },
+                        "minVelocity": 0.75
+                      }
+                }
+                console.log(options);
+                var network = new vis.Network(container, data, options);
             }
-            function resetAllNodes() {
-                nodes.clear();
-                edges.clear();
-                nodes.add(nodesArray);
-                edges.add(edgesArray);
-           }
+
+            this.resetAllNodes = function() {
+                if (this.nodes) {
+                    this.nodes.clear();
+                }
+                if (this.edges) {
+                    this.edges.clear();
+                }
+            }
 
             var changeOptions = function(){
                 var newColor = '#' + Math.floor((Math.random() * 255 * 255 * 255)).toString(16);
@@ -617,7 +680,7 @@
                 edges.update([{id:'6', color:'brown'}]);
                 edges.update([{id:'7', color:'green'}]);
                 */
-          }
+            }
         }
 
         /* Form validation. */
@@ -643,9 +706,9 @@
             $('#mynetwork').hide();
 
             // load switches data
-            sdntrace.get_switches();
+            sdntrace.call_get_switches();
             // load topology data
-            sdntrace.get_topology();
+            sdntrace.call_get_topology();
         }
 
         /* Initial load */
@@ -653,31 +716,38 @@
             DEBUG = false;
 
             sdntrace = new SDNTrace();
-            sdnColor = new SDNColor();
+            sdncolor = new SDNColor();
+            vislib = new VIS();
 
             $('#render_btn').click(function() {
                 $('#mynetwork').show();
-                render_topology();
+                vislib.render_topology();
             });
             $('#switches_select').change(function() {
-                sdntrace.get_switch_port($('#switches_select').val());
+                sdntrace.call_get_switch_port($('#switches_select').val());
             });
 
             $('#layer2_btn').click(function() {
                 jsonStr = sdntrace._build_trace_layer2_json();
-                sdntrace.trace_port(jsonStr);
+                sdntrace.call_trace_port(jsonStr);
             });
             $('#layer3_btn').click(function() {
                 jsonStr = sdntrace._build_trace_layer3_json();
-                sdntrace.trace_port(jsonStr);
+                sdntrace.call_trace_port(jsonStr);
             });
             $('#layerfull_btn').click(function() {
                 jsonStr = sdntrace._build_trace_layerfull_json();
-                sdntrace.trace_port(jsonStr);
+                sdntrace.call_trace_port(jsonStr);
             });
-            $('#get_colors_btn').click(function() {
-                sdntrace.get_switch_colors();
+            $('#render_colors_btn').click(function() {
+                sdntrace.call_get_switch_colors();
             });
+            $('#render_trace_btn').click(function() {
+                // triggering the html render because the topology may be empty.
+                sdntrace.render_html_topology();
+                vislib.render_topology_trace();
+            });
+
 
             $('#sdn-server-reload-btn').click(function() {
                 _initial_data_load();
@@ -933,8 +1003,9 @@
                         </div>
                     </div>
                     <div class="row">
-                        <input type="button" id="get_colors_btn" value="Get colors" >
                         <input type="button" id="render_btn" value="Render topology">
+                        <input type="button" id="render_colors_btn" value="Render colors" >
+                        <input type="button" id="render_trace_btn" value="Render trace" >
                     </div>
                     <div class="row">
                         <div id="mynetwork" class="col-md-12">
