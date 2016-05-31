@@ -101,7 +101,8 @@
         var SDNColor = function() {
             this.colors = {'1':'darkseagreen', '10':'dodgerblue', '11':'chocolate', '100':'darkorange', '101':'darkviolet', '110':'darkturquoise', '111':'black' }
             this.trace_color_on = '#1AC91A';
-            this.trace_color_off = '#8EB5EA';
+            this.trace_color_off = 'lightgray';
+            this.color_default = '#8EB5EA';
 
             /**
              * Get color CSS name.
@@ -109,7 +110,7 @@
              *     return: CSS color name
              */
             this.get_color = function(code) {
-                var result = '';
+                var result = null;
                 $.each( this.colors, function( key, val ) {
                     if (key == code) {
                         result = val;
@@ -573,11 +574,7 @@
                 this._render_network(false, true);
             }
 
-            this._render_network = function(with_colors, with_trace) {
-                with_colors = typeof with_colors !== 'undefined' ? with_colors : true;
-                with_trace = typeof with_trace !== 'undefined' ? with_trace : true;
-
-                this.resetAllNodes();
+            this._create_network_nodes = function(with_colors, with_trace) {
                 // create an array with nodes
                 var nodesArray = [];
                 for (x = 0; x < sdntrace.switches.length; x++) {
@@ -588,8 +585,18 @@
                         node_obj.color = sdncolor.trace_color_off;
                         for (y = 0; y < sdntrace.trace.length; y++) {
                             if (sdntrace.trace[y].id ==  sdntrace.switches[x]) {
-                                node_obj.color = sdncolor.trace_color_on;
+                                color_code = sdntrace.get_switch_color(sdntrace.switches[x])['color']
+                                color = sdncolor.get_color(color_code)
+                                if (color) {
+                                    node_obj.color = color
+                                } else {
+                                    // color codes are not loaded
+                                    node_obj.color = sdncolor.trace_color_on;
+                                }
                             }
+                        }
+                        if (typeof(node_obj.color)==='undefined') {
+                            node_obj.color = sdncolor.trace_color_off;
                         }
                     }
                     if (with_colors && sdntrace.switch_colors && sdntrace.switch_colors.length > 0) {
@@ -598,14 +605,15 @@
                     }
 
                     if (typeof(node_obj.color)==='undefined') {
-                        node_obj.color = sdncolor.trace_color_off;
+                        node_obj.color = sdncolor.color_default;
                     }
                     nodesArray.push(node_obj);
                 }
                 console.log(nodesArray);
                 this.nodes = new vis.DataSet(nodesArray);
+            }
 
-                // create an array with edges
+            this._create_network_edges = function(with_colors, with_trace) {
                 var edgesArray = [];
                 for (x = 0; x < sdntrace.topology.length; x++) {
                     for (y = 0; y < sdntrace.topology[x]['val'].length; y++) {
@@ -613,28 +621,59 @@
                         node_to_id = sdntrace.topology[x]['val'][y].substring(1,16);
                         edgeObj = {id:x+'_'+y, from: node_from_id, to: node_to_id, arrows:'to', smooth: {type: "dynamic"}};
                         if (with_trace) {
-                            edgeObj.color = sdncolor.trace_color_off;
+                            for (z = 1; z < sdntrace.trace.length; z++) {
+                                trace_node_from_id = sdntrace.trace[z-1].id.substring(1,16);
+                                trace_node_to_id = sdntrace.trace[z].id.substring(1,16);
+
+                                if (trace_node_from_id == node_from_id && trace_node_to_id == node_to_id) {
+                                    label = ''
+                                    if (sdntrace.trace[z-1].port) {
+                                        label += sdntrace.trace[z-1].port + "/";
+                                    }
+                                    if (sdntrace.trace[z].port) {
+                                        label += sdntrace.trace[z].port;
+                                    }
+
+                                    color_code = sdntrace.get_switch_color(sdntrace.trace[z-1].id)['color']
+                                    color = sdncolor.get_color(color_code);
+                                    if (color) {
+                                        edgeObj.color = color
+                                    } else {
+                                        // color codes are not loaded
+                                        edgeObj.color = sdncolor.trace_color_on;
+                                    }
+
+                                    edgeObj.label = label;
+                                    break;
+                                }
+                                // if it is not a trace edge, set the default color.
+                                if (!edgeObj.color) {
+                                    edgeObj.color = sdncolor.trace_color_off;
+                                }
+
+                            }
+                            // if it is not a trace edge, set the default color.
+                            if (!edgeObj.color) {
+                                edgeObj.color = sdncolor.color_default;
+                            }
+
                         }
-                        edgesArray.push(edgeObj);
-                    }
-                }
-                // initializing x var with 1 to get the first 2 elements
-                if (with_trace) {
-                    for (x = 1; x < sdntrace.trace.length; x++) {
-                        node_from_id = sdntrace.trace[x-1].id.substring(1,16);
-                        node_to_id = sdntrace.trace[x].id.substring(1,16);
-                        label = ''
-                        if (sdntrace.trace[x-1].port) {
-                            label += sdntrace.trace[x-1].port + "/";
-                        }
-                        if (sdntrace.trace[x].port) {
-                            label += sdntrace.trace[x].port;
-                        }
-                        edgeObj = {id:'T'+x+'_'+y, from: node_from_id, to: node_to_id, label:label, arrows:'to', smooth: {type: "dynamic"}, color:sdncolor.trace_color_on};
                         edgesArray.push(edgeObj);
                     }
                 }
                 this.edges = new vis.DataSet(edgesArray);
+            }
+
+            this._render_network = function(with_colors, with_trace) {
+                with_colors = typeof with_colors !== 'undefined' ? with_colors : true;
+                with_trace = typeof with_trace !== 'undefined' ? with_trace : true;
+
+                this.resetAllNodes();
+                // create an array with nodes
+                this._create_network_nodes(with_colors, with_trace);
+
+                // create an array with edges
+                this._create_network_edges(with_colors, with_trace);
 
                 // create a network
                 var container = document.getElementById('mynetwork');
