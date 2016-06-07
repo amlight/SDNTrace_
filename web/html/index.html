@@ -20,12 +20,30 @@
     .starter-template {
       padding: 40px 15px;
     }
+    .panel-heading>a {
+        color:inherit;
+    }
+    .modal-content {
+        padding:10px;
+        height: 100%;
+    }
+    .modal-dialog {
+      width: 90%;
+      height: 700px;
+    }
+    .modal-body {
+      overflow-y: auto;
+    }
+
     /* topology */
     #topology-panel {
       display:none;
     }
+    #collapse_topology_icon {
+      vertical-align:middle;
+    }
     #mynetwork {
-      height: 500px;
+      height: 650px;
       border: 1px solid lightgray;
     }
     #render_colors_btn,
@@ -125,6 +143,7 @@
             this.topology = [];
             this.switch_colors = [];
             this.trace = [];
+            this.has_trace_loop = false;
 
             /**
              * Return switch color object {'color', 'old_color'} given a switch ID.
@@ -148,6 +167,7 @@
                 if (sdntrace.switches) {
                     html_content = ""
                     html_content += "<option>---</option>";
+
                     for (var x = 0; x < sdntrace.switches.length; x++) {
                         html_content += "<option value='" + sdntrace.switches[x] + "'>" + sdntrace.switches[x] + "</option>";
                     }
@@ -167,6 +187,7 @@
                     html_content += "<div class='row'>";
                     html_content += "<div class='col-sm-12 col-md-12'>"
                     html_content += "<table id='switches_topology_table' class='table'><tbody>"
+
                     for (var x = 0; x < sdntrace.topology.length; x++) {
                         html_content += "<tr>"
                         html_content += "<td>" + sdntrace.topology[x]['key'];
@@ -250,6 +271,7 @@
                         // storing switch values
                         sdntrace.switches.push(jsonObj[x]);
                     }
+                    sdntrace.switches = sdntrace.switches.sort();
                     sdntrace.render_html_switches();
                 }
 
@@ -290,7 +312,13 @@
                         $.each( jsonObj, function( key, val ) {
                             sdntrace.topology.push({'key': key, 'val':val});
                         });
+
+                        sdntrace.topology = sdntrace.topology.sort(function(a, b) {
+                            return a['key'].localeCompare(b['key']);
+                        });
                         sdntrace.render_html_topology();
+
+                        sdntrace.call_get_switch_colors();
                     }
                 }
 
@@ -507,7 +535,10 @@
                         jsonObj= json;
                     }
 
+                    // reseting sdntrace tracing variables
+                    sdntrace.has_trace_loop = false;
                     sdntrace.trace = [];
+
                     // storing first element of trace;
                     sdntrace.trace.push({id:$('#switches_select').val(), port:$('#switch_port_hidden').val()});
 
@@ -516,11 +547,12 @@
                     html_content += "<div class='col-sm-10 col-md-5'><table class='table table-striped'>"
                     html_content += "<thead><tr><th>DPID</th><td>port</th></tr></thead>"
                     html_content += "<tbody>"
+
                     $.each( jsonObj, function( key, val ) {
                         if (val == 'loop') {
                             html_content += "<tr><td>" + val + "</td></tr>";
-                            // looping switch;
-                            sdntrace.trace.push({id:$('#switches_select').val()});
+                            // flag looping switch.
+                            sdntrace.has_trace_loop = true;
                         } else {
                             html_content += "<tr><td>" + val['trace']['dpid'] + "</td>"
                             html_content += "<td>" + val['trace']['port'] + "</td></tr>";
@@ -574,6 +606,11 @@
                 this._render_network(false, true);
             }
 
+            /**
+             * Create VIS network nodes.
+             * We use the sdntrace.switch list to create the nodes and expect that the topology will have the same
+             * node identification to draw the network edges.
+             */
             this._create_network_nodes = function(with_colors, with_trace) {
                 // create an array with nodes
                 var nodesArray = [];
@@ -609,54 +646,79 @@
                     }
                     nodesArray.push(node_obj);
                 }
-                console.log(nodesArray);
                 this.nodes = new vis.DataSet(nodesArray);
             }
 
+            /**
+             * Create VIS network edges.
+             * This function can be used to create the topology, topology with color and
+             * topology with tracing.
+             */
             this._create_network_edges = function(with_colors, with_trace) {
                 var edgesArray = [];
-                for (x = 0; x < sdntrace.topology.length; x++) {
-                    for (y = 0; y < sdntrace.topology[x]['val'].length; y++) {
+                // verify topology to create edges
+                for (var x = 0; x < sdntrace.topology.length; x++) {
+                    for (var y = 0; y < sdntrace.topology[x]['val'].length; y++) {
                         node_from_id = sdntrace.topology[x]['key'].substring(1,16);
                         node_to_id = sdntrace.topology[x]['val'][y].substring(1,16);
                         edgeObj = {id:x+'_'+y, from: node_from_id, to: node_to_id, arrows:'to', smooth: {type: "dynamic"}};
+                        // Verify trace to change edge colors and labels.
                         if (with_trace) {
-                            for (z = 1; z < sdntrace.trace.length; z++) {
-                                trace_node_from_id = sdntrace.trace[z-1].id.substring(1,16);
-                                trace_node_to_id = sdntrace.trace[z].id.substring(1,16);
+                            if (sdntrace.trace) {
+                                for (var z = 1; z < sdntrace.trace.length; z++) {
+                                    trace_node_from_id = sdntrace.trace[z-1].id.substring(1,16);
+                                    trace_node_to_id = sdntrace.trace[z].id.substring(1,16);
 
-                                if (trace_node_from_id == node_from_id && trace_node_to_id == node_to_id) {
-                                    label = ''
-                                    if (sdntrace.trace[z-1].port) {
-                                        label += sdntrace.trace[z-1].port + "/";
-                                    }
-                                    if (sdntrace.trace[z].port) {
-                                        label += sdntrace.trace[z].port;
-                                    }
+                                    if (trace_node_from_id == node_from_id && trace_node_to_id == node_to_id) {
+                                        label = ''
+                                        if (sdntrace.trace[z-1].port) {
+                                            label += sdntrace.trace[z-1].port + "/";
+                                        }
+                                        if (sdntrace.trace[z].port) {
+                                            label += sdntrace.trace[z].port;
+                                        }
 
-                                    color_code = sdntrace.get_switch_color(sdntrace.trace[z-1].id)['color']
-                                    color = sdncolor.get_color(color_code);
-                                    if (color) {
-                                        edgeObj.color = color
-                                    } else {
-                                        // color codes are not loaded
-                                        edgeObj.color = sdncolor.trace_color_on;
-                                    }
+                                        color_code = sdntrace.get_switch_color(sdntrace.trace[z-1].id)['color']
+                                        color = sdncolor.get_color(color_code);
+                                        if (color) {
+                                            edgeObj.color = color
+                                        } else {
+                                            // color codes are not loaded
+                                            edgeObj.color = sdncolor.trace_color_on;
+                                        }
 
-                                    edgeObj.label = label;
-                                    break;
+                                        edgeObj.label = label;
+                                        break;
+                                    }
+                                    // if it is not a trace edge, set the default color.
+                                    if (!edgeObj.color) {
+                                        edgeObj.color = sdncolor.trace_color_off;
+                                    }
                                 }
-                                // if it is not a trace edge, set the default color.
-                                if (!edgeObj.color) {
-                                    edgeObj.color = sdncolor.trace_color_off;
-                                }
-
                             }
                             // if it is not a trace edge, set the default color.
                             if (!edgeObj.color) {
                                 edgeObj.color = sdncolor.color_default;
                             }
+                        }
+                        edgesArray.push(edgeObj);
+                    }
+                }
 
+                if (with_trace) {
+                    // adding loop trace
+                    if (sdntrace.has_trace_loop && sdntrace.trace && sdntrace.trace.length > 0) {
+                        // selecting the first switch to loop
+                        trace_node_id = sdntrace.trace[0].id.substring(1,16);
+                        // expecting just one loope, otherwise we have an error with duplicated IDs
+                        edgeObj = {id:'0_loop', from: trace_node_id, to: trace_node_id, arrows:'to', smooth: {type: "dynamic"}};
+                        color_code = sdntrace.get_switch_color(sdntrace.trace[0].id)['color']
+                        color = sdncolor.get_color(color_code);
+                        if (color) {
+                            edgeObj.color = color
+                        } else {
+                            // color codes are not loaded
+                            edgeObj.color = sdncolor.trace_color_on;
                         }
                         edgesArray.push(edgeObj);
                     }
@@ -690,12 +752,12 @@
                       },
                       "physics": {
                         "barnesHut": {
-                          "springLength": 175
+                          "springLength": 200,
+                          "springConstant": 0.5
                         },
-                        "minVelocity": 0.75
+                        "minVelocity": 0.75,
                       }
                 }
-                console.log(options);
                 var network = new vis.Network(container, data, options);
             }
 
@@ -758,14 +820,27 @@
             sdncolor = new SDNColor();
             vislib = new VIS();
 
-            $('#render_btn').click(function() {
-                $('#mynetwork').show();
-                vislib.render_topology();
+
+            // Setup VIS modal
+            $(".modal-wide").on("show.bs.modal", function() {
+              var height = $(window).height() - 200;
+              $(this).find(".modal-body").css("max-height", height);
             });
+
+            // Setup collapsible topology list
+            $('#collapse_topology_panel').on('shown.bs.collapse', function () {
+               $("#collapse_topology_icon").removeClass("glyphicon-chevron-down").addClass("glyphicon-chevron-up");
+            });
+
+            $('#collapse_topology_panel').on('hidden.bs.collapse', function () {
+               $("#collapse_topology_icon").removeClass("glyphicon-chevron-up").addClass("glyphicon-chevron-down");
+            });
+            // Switch select change event to show ports
             $('#switches_select').change(function() {
                 sdntrace.call_get_switch_port($('#switches_select').val());
             });
 
+            // Trace form click events to submit forms
             $('#layer2_btn').click(function() {
                 jsonStr = sdntrace._build_trace_layer2_json();
                 sdntrace.call_trace_port(jsonStr);
@@ -778,24 +853,35 @@
                 jsonStr = sdntrace._build_trace_layerfull_json();
                 sdntrace.call_trace_port(jsonStr);
             });
-            $('#render_colors_btn').click(function() {
-                sdntrace.call_get_switch_colors();
+
+
+            // Render buttons click event to render VIS topology
+            $('#render_btn').click(function() {
+                $('#mynetwork').show();
+                vislib.render_topology();
             });
+            // Render buttons click event to render VIS topology with colors
+            $('#render_colors_btn').click(function() {
+                // sdntrace.call_get_switch_colors();
+                sdntrace.render_html_topology();
+                vislib.render_topology_colors();
+            });
+            // Render buttons click event to render VIS topology with tracing
             $('#render_trace_btn').click(function() {
                 // triggering the html render because the topology may be empty.
                 sdntrace.render_html_topology();
                 vislib.render_topology_trace();
             });
 
-
+            // Button reload data
             $('#sdn-server-reload-btn').click(function() {
                 _initial_data_load();
             });
 
-            // initialize form validators
+            // initialize form validators (IPv4 fields)
             _initialize_form_validation();
 
-            // initial data load
+            // initial data load (switch list, topology, colors)
             _initial_data_load();
         });
   </script>
@@ -823,207 +909,211 @@
 
     <div class="container">
         <div class="starter-template">
-            <div class="panel panel-default">
-                <div class="panel-heading">Switches</div>
-                <div class="panel-body">
-                    <!-- Switches list -->
-                    <div class="row">
-                        <div class="col-md-12">
-                            <div class="col-md-2">
-                                <label for="switches_select">Switches:</label>
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Switches</div>
+                        <div class="panel-body">
+                            <!-- Switches list -->
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="col-md-3">
+                                        <label for="switches_select">Switches:</label>
+                                    </div>
+                                    <select id="switches_select">
+                                        <option>----</option>
+                                    </select>
+                                </div>
                             </div>
-                            <select id="switches_select">
-                                <option>----</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div id="switch-ports" class="row">
-                        <!-- Ports list -->
-                        <div id="switch-ports-heading" class="col-md-12">
-                            <div class="col-md-2">
-                                <label>Ports:</label>
-                            </div>
-                            <input type="hidden" name="switch_port_hidden" id="switch_port_hidden" >
-                            <div id="switch-ports-content" class="col-md-10"></div>
-                        </div>
-                        <!-- Trace forms -->
-                        <div id="switch-ports-layer-form-content" class="col-md-12 form-horizontal">
-                            <div>
-                                <!-- Nav tabs -->
-                                <ul class="nav nav-tabs" role="tablist"><li role="presentation" class="active"><a href="#trace-layer-2" aria-controls="trace-layer-2" role="tab" data-toggle="tab">Trace Layer 2</a></li>
-                                    <li role="presentation"><a href="#trace-layer-3" aria-controls="trace-layer-3" role="tab" data-toggle="tab">Trace Layer 3</a></li>
-                                    <li role="presentation"><a href="#trace-layer-full" aria-controls="trace-layer-full" role="tab" data-toggle="tab">Trace Full</a></li>
-                                </ul>
-                                <!-- Tab panes -->
-                                <div class="tab-content">
-                                    <!-- Tab panes - Form layer 2 trace -->
-                                    <div role="tabpanel" class="tab-pane active" id="trace-layer-2">
-                                        <div class="panel panel-default">
-                                            <div class="panel-body">
-                                                <form id="maskFormLayer2" method="post" class="form-horizontal">
-                                                    <div class="form-group">
-                                                        <label for="l2_dl_src" class="col-sm-2 control-label">MAC Origem</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="l2_dl_src" name="l2_dl_src" placeholder="MAC Origem">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="l2_dl_dst" class="col-sm-2 control-label">MAC Destino</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="l2_dl_dst" name="l2_dl_dst" placeholder="MAC Destino">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="l2_dl_vlan" class="col-sm-2 control-label">VLAN</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="l2_dl_vlan" name="l2_dl_vlan" placeholder="VLAN">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="l2_dl_type" class="col-sm-2 control-label">Ethertype</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="l2_dl_type" name="l2_dl_type" placeholder="Ethertype">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <div class="col-sm-offset-2 col-sm-2">
-                                                            <button type="button" class="btn btn-default" id="layer2_btn">Trace Layer 2</button>
-                                                        </div>
-                                                        <div class="col-sm-8 loading-icon-div">
-                                                            <img src="./ajax-loader.gif" />
-                                                        </div>
-                                                    </div>
-                                                </form>
-                                            </div>
-                                        </div>
+                            <div id="switch-ports" class="row">
+                                <!-- Ports list -->
+                                <div id="switch-ports-heading" class="col-md-12">
+                                    <div class="col-md-2">
+                                        <label>Ports:</label>
                                     </div>
-                                    <!-- Tab panes - Form layer 3 trace -->
-                                    <div role="tabpanel" class="tab-pane" id="trace-layer-3">
-                                        <div class="panel panel-default">
-                                            <div class="panel-body">
-                                                <form id="maskFormLayer3" method="post" class="form-horizontal">
-                                                    <div class="form-group">
-                                                        <label for="l3_dl_vlan" class="col-sm-2 control-label">VLAN</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="l3_dl_vlan" name="l3_dl_vlan" placeholder="VLAN">
-                                                        </div>
+                                    <input type="hidden" name="switch_port_hidden" id="switch_port_hidden" >
+                                    <div id="switch-ports-content" class="col-md-10"></div>
+                                </div>
+                                <!-- Trace forms -->
+                                <div id="switch-ports-layer-form-content" class="col-md-12 form-horizontal">
+                                    <div>
+                                        <!-- Nav tabs -->
+                                        <ul class="nav nav-tabs" role="tablist"><li role="presentation" class="active"><a href="#trace-layer-2" aria-controls="trace-layer-2" role="tab" data-toggle="tab">Trace Layer 2</a></li>
+                                            <li role="presentation"><a href="#trace-layer-3" aria-controls="trace-layer-3" role="tab" data-toggle="tab">Trace Layer 3</a></li>
+                                            <li role="presentation"><a href="#trace-layer-full" aria-controls="trace-layer-full" role="tab" data-toggle="tab">Trace Full</a></li>
+                                        </ul>
+                                        <!-- Tab panes -->
+                                        <div class="tab-content">
+                                            <!-- Tab panes - Form layer 2 trace -->
+                                            <div role="tabpanel" class="tab-pane active" id="trace-layer-2">
+                                                <div class="panel panel-default">
+                                                    <div class="panel-body">
+                                                        <form id="maskFormLayer2" method="post" class="form-horizontal">
+                                                            <div class="form-group">
+                                                                <label for="l2_dl_src" class="col-sm-2 control-label">MAC Origem</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="l2_dl_src" name="l2_dl_src" placeholder="MAC Origem">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="l2_dl_dst" class="col-sm-2 control-label">MAC Destino</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="l2_dl_dst" name="l2_dl_dst" placeholder="MAC Destino">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="l2_dl_vlan" class="col-sm-2 control-label">VLAN</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="l2_dl_vlan" name="l2_dl_vlan" placeholder="VLAN">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="l2_dl_type" class="col-sm-2 control-label">Ethertype</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="l2_dl_type" name="l2_dl_type" placeholder="Ethertype">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <div class="col-sm-offset-2 col-sm-2">
+                                                                    <button type="button" class="btn btn-default" id="layer2_btn">Trace Layer 2</button>
+                                                                </div>
+                                                                <div class="col-sm-8 loading-icon-div">
+                                                                    <img src="./ajax-loader.gif" />
+                                                                </div>
+                                                            </div>
+                                                        </form>
                                                     </div>
-                                                    <div class="form-group">
-                                                        <label for="l3_nw_src" class="col-sm-2 control-label">IP de Origem</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control ip_address" type="text" id="l3_nw_src" name="l3_nw_src" placeholder="IP de Origem">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="l3_nw_dst" class="col-sm-2 control-label">IP de Destino</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control ip_address" type="text" id="l3_nw_dst" name="l3_nw_dst" placeholder="IP de Destino">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="l3_nw_tos" class="col-sm-2 control-label">TOS</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="l3_nw_tos" name="l3_nw_tos" placeholder="TOS">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="l3_tp_src" class="col-sm-2 control-label">TCP de Origem</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="l3_tp_src" name="l3_tp_src" placeholder="TCP de Origem">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="l3_tp_dst" class="col-sm-2 control-label">TCP de Destino</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="l3_tp_dst" name="l3_tp_dst" placeholder="TCP de Destino">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <div class="col-sm-offset-2 col-sm-2">
-                                                            <button type="button" class="btn btn-default" id="layer3_btn">Trace Layer 3</button>
-                                                        </div>
-                                                        <div class="col-sm-8 loading-icon-div">
-                                                            <img src="./ajax-loader.gif" />
-                                                        </div>
-                                                    </div>
-                                                </form>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                    <!-- Tab panes - Form full trace -->
-                                    <div role="tabpanel" class="tab-pane" id="trace-layer-full">
-                                        <div class="panel panel-default">
-                                            <div class="panel-body">
-                                                <form id="maskFormLayerFull" method="post" class="form-horizontal">
-                                                    <div class="form-group">
-                                                        <label for="lf_dl_src" class="col-sm-2 control-label">MAC Origem</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="lf_dl_src" name="lf_dl_src" placeholder="MAC Origem">
-                                                        </div>
+                                            <!-- Tab panes - Form layer 3 trace -->
+                                            <div role="tabpanel" class="tab-pane" id="trace-layer-3">
+                                                <div class="panel panel-default">
+                                                    <div class="panel-body">
+                                                        <form id="maskFormLayer3" method="post" class="form-horizontal">
+                                                            <div class="form-group">
+                                                                <label for="l3_dl_vlan" class="col-sm-2 control-label">VLAN</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="l3_dl_vlan" name="l3_dl_vlan" placeholder="VLAN">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="l3_nw_src" class="col-sm-2 control-label">IP de Origem</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control ip_address" type="text" id="l3_nw_src" name="l3_nw_src" placeholder="IP de Origem">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="l3_nw_dst" class="col-sm-2 control-label">IP de Destino</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control ip_address" type="text" id="l3_nw_dst" name="l3_nw_dst" placeholder="IP de Destino">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="l3_nw_tos" class="col-sm-2 control-label">TOS</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="l3_nw_tos" name="l3_nw_tos" placeholder="TOS">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="l3_tp_src" class="col-sm-2 control-label">TCP de Origem</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="l3_tp_src" name="l3_tp_src" placeholder="TCP de Origem">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="l3_tp_dst" class="col-sm-2 control-label">TCP de Destino</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="l3_tp_dst" name="l3_tp_dst" placeholder="TCP de Destino">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <div class="col-sm-offset-2 col-sm-2">
+                                                                    <button type="button" class="btn btn-default" id="layer3_btn">Trace Layer 3</button>
+                                                                </div>
+                                                                <div class="col-sm-8 loading-icon-div">
+                                                                    <img src="./ajax-loader.gif" />
+                                                                </div>
+                                                            </div>
+                                                        </form>
                                                     </div>
-                                                    <div class="form-group">
-                                                        <label for="lf_dl_dst" class="col-sm-2 control-label">MAC Destino</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="lf_dl_dst" name="lf_dl_dst" placeholder="MAC Destino">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="lf_dl_vlan" class="col-sm-2 control-label">VLAN</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="lf_dl_vlan" name="lf_dl_vlan" placeholder="VLAN">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="lf_dl_type" class="col-sm-2 control-label">Ethertype</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="lf_dl_type" name="lf_dl_type" placeholder="Ethertype">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="lf_nw_src" class="col-sm-2 control-label ip_address">IP de Origem</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="lf_nw_src" name="lf_nw_src" placeholder="IP de Origem">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="lf_nw_dst" class="col-sm-2 control-label ip_address">IP de Destino</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="lf_nw_dst" name="lf_nw_dst" placeholder="IP de Destino">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="lf_nw_tos" class="col-sm-2 control-label">TOS</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="lf_nw_tos" name="lf_nw_tos" placeholder="TOS">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="lf_tp_src" class="col-sm-2 control-label">TCP de Origem</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="lf_tp_src" name="lf_tp_src" placeholder="TCP de Origem">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="lf_tp_dst" class="col-sm-2 control-label">TCP de Destino</label>
-                                                        <div class="col-sm-10">
-                                                            <input class="form-control" type="text" id="lf_tp_dst" name="lf_tp_dst" placeholder="TCP de Destino">
-                                                        </div>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <div class="col-sm-offset-2 col-sm-10">
-                                                            <button type="button" class="btn btn-default" id="layerfull_btn">Trace Full</button>
-                                                        </div>
-                                                        <div class="col-sm-8 loading-icon-div">
-                                                            <img src="./ajax-loader.gif" />
-                                                        </div>
-                                                    </div>
-                                                </form>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                    <div class="panel panel-default" id="trace-result-panel">
-                                        <div class="panel-body">
-                                            <div id="trace-result-content">
+                                            <!-- Tab panes - Form full trace -->
+                                            <div role="tabpanel" class="tab-pane" id="trace-layer-full">
+                                                <div class="panel panel-default">
+                                                    <div class="panel-body">
+                                                        <form id="maskFormLayerFull" method="post" class="form-horizontal">
+                                                            <div class="form-group">
+                                                                <label for="lf_dl_src" class="col-sm-2 control-label">MAC Origem</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="lf_dl_src" name="lf_dl_src" placeholder="MAC Origem">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="lf_dl_dst" class="col-sm-2 control-label">MAC Destino</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="lf_dl_dst" name="lf_dl_dst" placeholder="MAC Destino">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="lf_dl_vlan" class="col-sm-2 control-label">VLAN</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="lf_dl_vlan" name="lf_dl_vlan" placeholder="VLAN">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="lf_dl_type" class="col-sm-2 control-label">Ethertype</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="lf_dl_type" name="lf_dl_type" placeholder="Ethertype">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="lf_nw_src" class="col-sm-2 control-label ip_address">IP de Origem</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="lf_nw_src" name="lf_nw_src" placeholder="IP de Origem">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="lf_nw_dst" class="col-sm-2 control-label ip_address">IP de Destino</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="lf_nw_dst" name="lf_nw_dst" placeholder="IP de Destino">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="lf_nw_tos" class="col-sm-2 control-label">TOS</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="lf_nw_tos" name="lf_nw_tos" placeholder="TOS">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="lf_tp_src" class="col-sm-2 control-label">TCP de Origem</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="lf_tp_src" name="lf_tp_src" placeholder="TCP de Origem">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="lf_tp_dst" class="col-sm-2 control-label">TCP de Destino</label>
+                                                                <div class="col-sm-10">
+                                                                    <input class="form-control" type="text" id="lf_tp_dst" name="lf_tp_dst" placeholder="TCP de Destino">
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <div class="col-sm-offset-2 col-sm-10">
+                                                                    <button type="button" class="btn btn-default" id="layerfull_btn">Trace Full</button>
+                                                                </div>
+                                                                <div class="col-sm-8 loading-icon-div">
+                                                                    <img src="./ajax-loader.gif" />
+                                                                </div>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="panel panel-default" id="trace-result-panel">
+                                                <div class="panel-body">
+                                                    <div id="trace-result-content">
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1032,34 +1122,60 @@
                         </div>
                     </div>
                 </div>
-            </div>
-            <div id="topology-panel" class="panel panel-default">
-                <div class="panel-heading">Topology</div>
-                <div class="panel-body">
-                    <div class="row">
-                        <div id="switches_topology_text" class="col-md-12">
-                            <!-- dynamic content -->
+                <div class="col-md-12">
+                    <div id="topology-panel" class="panel panel-default ">
+                        <div class="panel-heading">
+                            <a data-toggle="collapse" href="#collapse_topology_panel">Topology</a>
+                            <span id="collapse_topology_icon" class='glyphicon glyphicon-chevron-down' aria-hidden='true'></span>
+                            <button id="render_btn" type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#myModal3">
+                              Render topology
+                            </button>
+                            <button id="render_colors_btn" type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#myModal3">
+                              Render colors
+                            </button>
+                            <button id="render_trace_btn" type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#myModal3">
+                              Render trace
+                            </button>
                         </div>
-                    </div>
-                    <div class="row">
-                        <input type="button" id="render_btn" value="Render topology">
-                        <input type="button" id="render_colors_btn" value="Render colors" >
-                        <input type="button" id="render_trace_btn" value="Render trace" >
-                    </div>
-                    <div class="row">
-                        <div id="mynetwork" class="col-md-12">
-                            <div class="vis-network" tabindex="900" style="position: relative; overflow: hidden; touch-action: pan-y; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;">
-                                <canvas width="500" height="500" style="position: relative; touch-action: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;"></canvas>
+                        <div id="collapse_topology_panel" class="panel-collapse collapse">
+                            <div class="row">
+                                <div id="switches_topology_text" class="col-md-12">
+                                    <!-- dynamic content -->
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+            <div class="row">
+<!-- Button trigger modal -->
+
+            </div>
+
+            <div class="col-md-12">
+
+<!-- Modal -->
+<div class="modal fade" id="myModal3" tabindex="-1" role="dialog"
+     aria-labelledby="myModalLabel5" aria-hidden="true">
+  <div class="modal-dialog " role="document">
+    <div class="modal-content" style="background-color:white">
+        <!--<button type="button" id="render_btn2" class="btn btn-primary btn-sm">Render topology</button>-->
+        <!--<button type="button" id="render_colors_btn2" class="btn btn-primary btn-sm">Render colors</button>-->
+        <!--<button type="button" id="render_trace_btn23" class="btn btn-primary btn-sm">Render trace</button>-->
+        <div id="mynetwork">
+            <div class="vis-network" tabindex="900" style="position: relative; overflow: hidden; touch-action: pan-y; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;">
+                <canvas width="500" height="850" style="position: relative; touch-action: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;"></canvas>
+            </div>
+        </div>
+</div>
+  </div>
+</div>
+            </div>
         </div>
     </div><!-- /.container -->
 
     <div id="gridSystemModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="gridSystemModalLabel">
-        <div class="modal-dialog" role="document">
+        <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -1080,3 +1196,5 @@
     </div>
 </body>
 </html>
+
+
