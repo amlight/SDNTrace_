@@ -759,6 +759,10 @@
                       }
                 }
                 var network = new vis.Network(container, data, options);
+                network.on("initRedraw", function (ctx) {
+                    this.fit();
+                });
+
             }
 
             this.resetAllNodes = function() {
