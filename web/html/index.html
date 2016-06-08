@@ -760,12 +760,14 @@
                         "minVelocity": 0.75,
                       }
                 }
-                var flag_first_draw = true;
+                var flag_first_afterDrawing = true;
+                var flag_first_stabilized = true;
                 var network = new vis.Network(container, data, options);
 
                 // Trying to fit the network to viewport.
                 network.on("stabilized", function (ctx) {
-                    if (flag_first_draw) {
+                    if (flag_first_stabilized) {
+                        flag_first_stabilized = false;
                         this.fit();
                     }
                 });
@@ -775,9 +777,9 @@
                 // draw the network again.
                 // It can cause a visual glitch if the network is not stabilized.
                 network.on("afterDrawing", function (ctx) {
-                    if (flag_first_draw) {
+                    if (flag_first_afterDrawing) {
+                        flag_first_afterDrawing = false;
                         this.fit();
-                        flag_first_draw = false;
                     }
                 });
             }
