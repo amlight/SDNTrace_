@@ -616,8 +616,8 @@
                 var nodesArray = [];
                 for (x = 0; x < sdntrace.switches.length; x++) {
                     node_id = sdntrace.switches[x].substring(1,16);
-
-                    node_obj = {id: node_id, label:sdntrace.switches[x], x:0, y:0, physics:true};
+                    angle = 0.1 * x;
+                    node_obj = {id: node_id, label:sdntrace.switches[x], x:(1+angle)*Math.cos(angle), y:(1+angle)*Math.sin(angle), physics:true, mass:2};
                     if (with_trace && sdntrace.trace && sdntrace.trace.length > 1) {
                         node_obj.color = sdncolor.trace_color_off;
                         for (y = 0; y < sdntrace.trace.length; y++) {
@@ -745,6 +745,7 @@
                 };
                 // network physics
                 var options = {
+                    autoResize: true,
                     "edges": {
                         "smooth": {
                           "forceDirection": "none"
@@ -752,17 +753,33 @@
                       },
                       "physics": {
                         "barnesHut": {
-                          "springLength": 200,
-                          "springConstant": 0.5
+                          "springLength": 100,
+                          "springConstant": 0.05,
+                          "avoidOverlap": 0.1
                         },
                         "minVelocity": 0.75,
                       }
                 }
+                var flag_first_draw = true;
                 var network = new vis.Network(container, data, options);
-                network.on("initRedraw", function (ctx) {
-                    this.fit();
-                });
 
+                // Trying to fit the network to viewport.
+                network.on("stabilized", function (ctx) {
+                    if (flag_first_draw) {
+                        this.fit();
+                    }
+                });
+                // Sometimes the viewport is not properly rendered
+                // so we have to fit again afterDrawing.
+                // The flag must stop the fitting, because it will
+                // draw the network again.
+                // It can cause a visual glitch if the network is not stabilized.
+                network.on("afterDrawing", function (ctx) {
+                    if (flag_first_draw) {
+                        this.fit();
+                        flag_first_draw = false;
+                    }
+                });
             }
 
             this.resetAllNodes = function() {
