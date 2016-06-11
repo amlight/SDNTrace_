@@ -11,6 +11,7 @@ from ryu.ofproto.ofproto_v1_0_parser import OFPPhyPort
 from Coloring import prepare, topology
 from Exceptions import brocade
 from Tracing import trace_pkt, tracing
+from Statistics import stats
 
 
 class OFSwitch:
@@ -27,6 +28,10 @@ class OFSwitch:
         self.color = "0"
         self.old_color = "0"
         self.name = self.datapath_id
+        # Clear colored flows when connected
+        self.clear_start = False
+        # Statistics
+        self.flows = []
         # To avoid issues when deleting flows
         global MINIMUM_COOKIE_ID
         self.cookie = MINIMUM_COOKIE_ID + 1
@@ -63,7 +68,7 @@ class OFSwitch:
         return port_list
 
 
-# These will become part of a configuration file
+# These are configurable on the sdntrace.conf file
 MINIMUM_COOKIE_ID = 2000000
 PACKET_OUT_INTERVAL = 5
 PUSH_COLORS_INTERVAL = 10
@@ -71,9 +76,6 @@ COLLECT_INTERVAL = 30
 HAS_OFPP_TABLE_SUPPORT = True
 VLAN_DISCOVERY = 100
 FLOW_PRIORITY = 50000
-
-# TODO Print 'System Ready' once the topology was discovery
-# TODO Do not accept any request before that
 
 
 class SDNTrace(app_manager.RyuApp):
@@ -92,10 +94,50 @@ class SDNTrace(app_manager.RyuApp):
         self.push_colors = hub.spawn(self._push_colors)
         # self.collect_stats = hub.spawn(self._collect_stats)
         # Trace
-        # self.active_traces = []  # list of Probes class
         self.trace_pktIn = []  # list of received PacketIn not LLDP
+        # Read configuration file
+        self.read_config()
 
         self.print_ready = False # Just to print System Ready once
+
+    def read_config(self):
+        """
+            Read the configuration file (sdntrace.conf) to import
+            global variables. If file does not exist, ignore.
+        """
+        config_file = "sdntrace.conf"
+        try:
+            f = open(config_file, 'ro')
+        except:
+            return
+        for line in f:
+            if line[0].isalpha():
+                variable, param = line.split('=')
+                variable = variable.strip(' ')
+                param = param.strip('\n').strip(' ')
+                if variable == 'MINIMUM_COOKIE_ID':
+                    global MINIMUM_COOKIE_ID
+                    MINIMUM_COOKIE_ID = int(param)
+                elif variable == 'PACKET_OUT_INTERVAL':
+                    global PACKET_OUT_INTERVAL
+                    PACKET_OUT_INTERVAL = int(param)
+                elif variable == 'PUSH_COLORS_INTERVAL':
+                    global PUSH_COLORS_INTERVAL
+                    PUSH_COLORS_INTERVAL = int(param)
+                elif variable == 'COLLECT_INTERVAL':
+                    global COLLECT_INTERVAL
+                    COLLECT_INTERVAL = int(param)
+                elif variable == 'HAS_OFPP_TABLE_SUPPORT':
+                    global HAS_OFPP_TABLE_SUPPORT
+                    HAS_OFPP_TABLE_SUPPORT = param
+                elif variable == 'VLAN_DISCOVERY':
+                    global VLAN_DISCOVERY
+                    VLAN_DISCOVERY = int(param)
+                elif variable == 'FLOW_PRIORITY':
+                    global FLOW_PRIORITY
+                    FLOW_PRIORITY = int(param)
+                else:
+                    print 'Invalid Option'
 
     def _topology_discovery(self):
         """
@@ -125,18 +167,6 @@ class SDNTrace(app_manager.RyuApp):
                 if len(self.links) is not 0:
                     self.get_topology_data()
             hub.sleep(PUSH_COLORS_INTERVAL)
-
-    # def _collect_stats(self):
-    #     """
-    #         This method will send FLOW_STAT_REQ each
-    #           COLLECT_INTERVAL interval
-    #         Args:
-    #             self
-    #     """
-    #     while True:
-    #         for node in self.node_list:
-    #             brocade.send_stat_req(self, node)
-    #         hub.sleep(COLLECT_INTERVAL)
 
     @staticmethod
     def send_packet_out(node, port, data, lldp=False):
@@ -177,8 +207,35 @@ class SDNTrace(app_manager.RyuApp):
             Args:
                 ev: event triggered
         """
+        # Add new node to self.node_list and instantiate class OFSwitch
         self.node_list.append(OFSwitch(ev))
+
+        # Let's remove any old colored flow
+        # 1 - Get the inserted switch
+        sw_added = self.node_list[len(self.node_list)-1]
+        # 2 - Send a OFP_STAT_REQ code Flow
+        self.send_stat_req(sw_added)
+        # 3 - Once the STAT_REPLY is received, delete the flow
+
+        # Add the topology discovery flow
         self.add_default_flow(ev)
+
+    @staticmethod
+    def send_stat_req(node):
+        """
+            Send  STAT_REQ for synchronization
+            Args:
+                ev: event
+        """
+        datapath = node.obj.msg.datapath
+        parser = datapath.ofproto_parser
+        ofproto = datapath.ofproto
+        flags = 0
+        match = parser.OFPMatch()
+        table_id = 0
+        req = parser.OFPFlowStatsRequest(datapath, flags, match, table_id,
+                                         ofproto.OFPP_NONE)
+        datapath.send_msg(req)
 
     def add_default_flow(self, ev):
         """
@@ -230,19 +287,21 @@ class SDNTrace(app_manager.RyuApp):
             if pkt is not False:
                 self.trace_pktIn.append(pkt)
 
-    # @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
-    # def flow_stats_reply(self, ev):
-    #     """
-    #         Process Flow Stats
-    #         Args:
-    #             ev: packet captured
-    #     """
-    #     brocade.flow_stats_reply(ev)
+    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
+    def flow_stats_reply(self, ev):
+        """
+             Process Flow Stats
+             Args:
+                 ev: packet captured
+        """
+        stats.flow_stats_reply(self, ev)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
     def openflow_error(self, ev):
         """
             Print Error Received. Useful for troubleshooting, specially with Brocade
+            Args:
+                ev: event
         """
         msg = ev.msg
         print ('OFPErrorMsg received: type=0x%02x code=0x%02x message=%s' %
@@ -255,9 +314,6 @@ class SDNTrace(app_manager.RyuApp):
             Args:
                 self
         """
-        # TODO: if it is the first time, make sure the flows were not installed \
-        # TODO: in the previous executions. Delete all legacy flows (wildcard 0x2fffef)
-
         colors = prepare.define_color(self, self.links)
 
         # print 'colors'
@@ -391,7 +447,8 @@ class SDNTrace(app_manager.RyuApp):
             print 'WARN: System Not Ready Yet'
             return 0
 
-        if HAS_OFPP_TABLE_SUPPORT is True:
+        print repr(HAS_OFPP_TABLE_SUPPORT)
+        if HAS_OFPP_TABLE_SUPPORT:
             # create a thread to handle this request
             return tracing.handle_trace(self, entries, node, color, r_id)
         else:
