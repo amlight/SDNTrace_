@@ -1,4 +1,4 @@
-from Coloring import Coloring
+from libs.Coloring import coloring
 
 
 def simplify_list_links(links):
@@ -22,7 +22,7 @@ def simplify_list_links(links):
 def save_current_colors(obj):
     """
         Save all current colors
-        If the coloring flow needs to be replaced, it is
+        If the Coloring flow needs to be replaced, it is
             important to know the last color to use as a
             match for deleting old flows
             Just copy current color for old_color variable
@@ -46,7 +46,7 @@ def define_color(obj, links):
 
     save_current_colors(obj)
 
-    colors = Coloring(tuple(obj.node_list))
+    colors = coloring.Coloring(tuple(obj.node_list))
     colors.define_colors()
     ret_colors = colors.return_colors()
     # Debug

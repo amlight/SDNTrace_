@@ -8,10 +8,11 @@ from ryu.lib import hub
 from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto.ofproto_v1_0_parser import OFPPhyPort
 
-from Coloring import prepare, topology
-from Exceptions import brocade
-from Tracing import trace_pkt, tracing
-from Statistics import stats
+from libs.Coloring import topology
+from libs.Coloring import prepare
+from libs.Exceptions import brocade
+from libs.Statistics import stats
+from libs.Tracing import trace_pkt, tracing
 
 
 class OFSwitch:
@@ -23,7 +24,7 @@ class OFSwitch:
         self.obj = ev
         self.dpid = ev.msg.datapath_id
         self.ports = self._extract_ports()
-        # To be used for coloring
+        # To be used for Coloring
         self.adjacencies_list = []
         self.color = "0"
         self.old_color = "0"
@@ -105,7 +106,7 @@ class SDNTrace(app_manager.RyuApp):
             Read the configuration file (sdntrace.conf) to import
             global variables. If file does not exist, ignore.
         """
-        config_file = "sdntrace.conf"
+        config_file = "conf/sdntrace.conf"
         try:
             f = open(config_file, 'ro')
         except:

@@ -1,8 +1,9 @@
 """
     This file will be the core of the trace system.
 """
-from ryu.lib.packet import ethernet, vlan, tcp
 from ryu.lib import hub
+from ryu.lib.packet import ethernet, vlan, tcp
+
 import trace_pkt
 
 
