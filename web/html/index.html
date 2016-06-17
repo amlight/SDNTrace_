@@ -17,11 +17,11 @@
     .panel-heading {
       font-size: 1.3em;
     }
-    .starter-template {
-      padding: 40px 15px;
-    }
     .panel-heading>a {
         color:inherit;
+    }
+    .starter-template {
+      padding: 40px 15px;
     }
     .modal-content {
         padding:10px;
@@ -616,8 +616,10 @@
                 var nodesArray = [];
                 for (x = 0; x < sdntrace.switches.length; x++) {
                     node_id = sdntrace.switches[x].substring(1,16);
+                    // positioning in spiral mode to help the physics animation and prevent crossing lines
                     angle = 0.1 * x;
-                    node_obj = {id: node_id, label:sdntrace.switches[x], x:(1+angle)*Math.cos(angle), y:(1+angle)*Math.sin(angle), physics:true, mass:2};
+                    node_obj = {id: node_id, label:sdntrace.switches[x], x:(1+angle)*Math.cos(angle), y:(1+angle)*Math.sin(angle), physics:true, mass:2, borderWidth:1};
+                    // Trace coloring
                     if (with_trace && sdntrace.trace && sdntrace.trace.length > 1) {
                         node_obj.color = sdncolor.trace_color_off;
                         for (y = 0; y < sdntrace.trace.length; y++) {
@@ -625,25 +627,32 @@
                                 color_code = sdntrace.get_switch_color(sdntrace.switches[x])['color']
                                 color = sdncolor.get_color(color_code)
                                 if (color) {
-                                    node_obj.color = color
+                                    node_obj.color = {'background' : color};
                                 } else {
                                     // color codes are not loaded
-                                    node_obj.color = sdncolor.trace_color_on;
+                                    node_obj.color = {'background' : sdncolor.trace_color_on};
+                                }
+                                // Highlighting the first node / start node
+                                if (y == 0) {
+                                    node_obj.borderWidth = 3;
+                                    node_obj.color.border = '#000000';
+                                    node_obj.color.highlight = {'border' : '#000000'};
                                 }
                             }
                         }
                         if (typeof(node_obj.color)==='undefined') {
-                            node_obj.color = sdncolor.trace_color_off;
+                            node_obj.color = {'background' : sdncolor.trace_color_off};
                         }
                     }
                     if (with_colors && sdntrace.switch_colors && sdntrace.switch_colors.length > 0) {
                         color_code = sdntrace.get_switch_color(sdntrace.switches[x])['color']
-                        node_obj.color = sdncolor.get_color(color_code);
+                        node_obj.color = {'background' : sdncolor.get_color(color_code)};
                     }
 
                     if (typeof(node_obj.color)==='undefined') {
-                        node_obj.color = sdncolor.color_default;
+                        node_obj.color = {'background' : sdncolor.color_default};
                     }
+
                     nodesArray.push(node_obj);
                 }
                 this.nodes = new vis.DataSet(nodesArray);
