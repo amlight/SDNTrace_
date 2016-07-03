@@ -93,6 +93,7 @@ class SDNTrace(app_manager.RyuApp):
         # Threads
         self.topo_disc = hub.spawn(self._topology_discovery)
         self.push_colors = hub.spawn(self._push_colors)
+        self.query_flows = hub.spawn(self._query_flows)
         # self.collect_stats = hub.spawn(self._collect_stats)
         # Trace
         self.trace_pktIn = []  # list of received PacketIn not LLDP
@@ -168,6 +169,15 @@ class SDNTrace(app_manager.RyuApp):
                 if len(self.links) is not 0:
                     self.get_topology_data()
             hub.sleep(PUSH_COLORS_INTERVAL)
+
+    def _query_flows(self):
+        """
+            Keeps querying for OFP_STAT_RES code Flow
+        """
+        while True:
+            for node in self.node_list:
+                self.send_stat_req(node)
+            hub.sleep(COLLECT_INTERVAL)
 
     @staticmethod
     def send_packet_out(node, port, data, lldp=False):

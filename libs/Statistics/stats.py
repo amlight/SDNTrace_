@@ -20,7 +20,8 @@ def flow_stats_reply(pkt, ev):
     for stat in ev.msg.body:
         if not node.clear_start and stat.match.dl_vlan_pcp is not 0:
             delete_colored_flow(pkt, node, stat)
-            node.flows.append(stat)
+    add_flows_to_node(node, ev.msg.body)
+    node.clear_start = True
 
 
 def delete_colored_flow(pkt, node, flow):
@@ -35,5 +36,27 @@ def delete_colored_flow(pkt, node, flow):
     flags = 0
     pkt.push_flow(datapath, cookie, flow.priority, ofproto.OFPFC_DELETE_STRICT,
                    flow.match, actions, flags)
-    node.clear_start = True
+    datapath.send_barrier()
+    return
+
+
+def add_flows_to_node(node, flows):
+    """
+        Add flows to node.flows in a JSON-supported way
+        Args:
+            node: node
+            flows: OpenFlow entries associated to node 'node'
+    """
+    temp_flow = {} # each temporary flow
+    temp_flows = [] # all temporary flows
+    for flow in flows:
+        temp_flow['match'] = flow.match
+        temp_flow['actions'] = flow.actions
+        temp_flow['byte_count'] = flow.byte_count
+        temp_flow['duration_sec'] = flow.duration_sec
+        temp_flow['duration_nsec'] = flow.duration_nsec
+        temp_flow['packet_count'] = flow.packet_count
+        temp_flow['priority'] = flow.priority
+        temp_flows.append(temp_flow)
+    node.flows = temp_flows
     return

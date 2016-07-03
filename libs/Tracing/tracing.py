@@ -38,7 +38,7 @@ def handle_trace(obj, entries, node, color, r_id):
                 trace_result.append(result)
                 is_loop = check_loop(trace_result)
                 if is_loop:
-                    trace_result[is_loop] = 'loop'
+                    trace_result.append('loop')
                     return trace_result
                 # Prepare next packet
                 prepare = trace_pkt.prepare_next_packet
