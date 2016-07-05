@@ -5,6 +5,7 @@
   <script src="lib/bootstrap.min.js"></script>
   <script src="lib/jquery.mask.min.js"></script>
   <script src="lib/vis.min.js"></script>
+  <script src="lib/conf.js"></script>
 
   <link href="lib/bootstrap.min.css" rel="stylesheet">
   <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
@@ -13,6 +14,14 @@
   <style type="text/css">
     body {
       padding-top: 50px;
+    }
+    .navbar-brand {
+      padding:0;
+      line-height: 2.8em;
+    }
+    .logo-header {
+      max-height: 2.8em;
+      padding: 0.1em;
     }
     .panel-heading {
       font-size: 1.3em;
@@ -54,6 +63,7 @@
 
     #switches_topology_table td {
       font-size: 0.85em;
+      white-space: nowrap;
     }
     /* topology id */
     #switches_topology_table td:nth-child(1),
@@ -82,11 +92,24 @@
     #switch-ports {
       display:none;
     }
-    #switch-ports-content ul {
+    #switch-ports-content {
+      padding-left: 0;
+    }
+    #switch-ports-content .list-group {
       padding:0;
     }
     #switch-ports-layer-form-content {
       display:none;
+    }
+    .switch-port-a {
+      width: 5em;
+      padding: 0.2em 1em 0.2em 1em;
+      text-align: right;
+    }
+    .switch-port-a.active, .switch-port-a.active:hover, .switch-port-a.active:focus {
+      color: #555;
+      background-color: lightgray;
+      border-color: lightgray;
     }
     #trace-result-content table {
       font-size: 0.8em;
@@ -169,7 +192,8 @@
                     html_content += "<option>---</option>";
 
                     for (var x = 0; x < sdntrace.switches.length; x++) {
-                        html_content += "<option value='" + sdntrace.switches[x] + "'>" + sdntrace.switches[x] + "</option>";
+                        html_content += "<option value='" + sdntrace.switches[x].id + "'>" + sdntrace.switches[x].get_verbose_name();
+                        html_content += "</option>";
                     }
                     $('#switches_select').html(html_content);
                 }
@@ -190,7 +214,12 @@
 
                     for (var x = 0; x < sdntrace.topology.length; x++) {
                         html_content += "<tr>"
-                        html_content += "<td>" + sdntrace.topology[x]['key'];
+                        html_content += "<td>";
+
+                        // display nice switch name
+                        var temp_switch = new Switch(sdntrace.topology[x]['key']);
+                        html_content += temp_switch.get_verbose_name();
+
                         if (sdntrace.switch_colors && sdntrace.switch_colors.length > 0) {
                             var obj_color = sdntrace.get_switch_color(sdntrace.topology[x]['key']);
                             html_content += "</td><td><span style='color:" + sdncolor.get_color(obj_color['color']) +"'>" + obj_color['color'] + "</span>";
@@ -206,7 +235,10 @@
                             var val_array = ("" + sdntrace.topology[x]['val']).split(",");
                             for (var y = 0; y < val_array.length; y++) {
                                 html_content += "<li>"
-                                html_content += val_array[y];
+                                // display nice switch name
+                                var temp_switch = new Switch(val_array[y]);
+                                html_content += temp_switch.get_verbose_name();
+
                                 html_content += "</li>"
                             }
                             if (sdntrace.switch_colors && sdntrace.switch_colors.length > 0) {
@@ -269,7 +301,7 @@
                     }
                     for (var x = 0; x < jsonObj.length; x++) {
                         // storing switch values
-                        sdntrace.switches.push(jsonObj[x]);
+                        sdntrace.switches.push(new Switch(jsonObj[x]));
                     }
                     sdntrace.switches = sdntrace.switches.sort();
                     sdntrace.render_html_switches();
@@ -354,11 +386,11 @@
                         jsonObj= json;
                     }
                     html_content = ""
-                    html_content += "<ul>";
+                    html_content += "<div class='list-group'  data-toggle='buttons'>";
                     $.each( jsonObj, function( key, val ) {
-                        html_content += "<li><a href='#' class='switch-port-a'>" + val + "</a></li>";
+                        html_content += "<a href='#' class='list-group-item switch-port-a'>" + val + "</a>";
                     });
-                    html_content += "</ul>";
+                    html_content += "</div>";
 
                     $('#switch-ports-content').html(html_content);
 
@@ -369,6 +401,8 @@
                         $('#switch_port_hidden').val($(this).html());
                         // hide trace result panel
                         $('#trace-result-panel').hide();
+                        $('.switch-port-a').removeClass('active');
+                        $(this).addClass('active');
                     });
                 }
 
@@ -587,6 +621,56 @@
             }
         }
 
+        /**
+         * Switch representation.
+         */
+        var Switch = function(switch_id) {
+            this.id = switch_id;
+
+            /**
+             * Get switch fantasy name from configuration data.
+             */
+            this.get_name = function() {
+                if (typeof SDNTRACE_CONF != 'undefined') {
+                    var name = SDNTRACE_CONF.dict[this.id];
+                    if (name != undefined) {
+                        return name;
+                    }
+                }
+                return null;
+            }
+
+            /**
+             * Get switch fantasy name from configuration data.
+             * Return verbose name as: <ID> - <NAME>
+             */
+            this.get_verbose_name = function() {
+                if (typeof SDNTRACE_CONF != 'undefined') {
+                    var name = SDNTRACE_CONF.dict[this.id];
+                    if (name != undefined) {
+                        return this.id + ' - ' + name;
+                    }
+                }
+                return this.id;
+            }
+
+            /**
+             * Get switch fantasy name from configuration data.
+             * Return verbose name to be used on vis.js: <ID>\n<NAME>
+             */
+            this.get_node_name = function() {
+                if (typeof SDNTRACE_CONF != 'undefined') {
+                    var name = SDNTRACE_CONF.dict[this.id];
+                    if (name != undefined) {
+                        return this.id + '\n' + name;
+                    }
+                }
+                return this.id;
+            }
+        }
+        // Return switch id if the class is used with strings
+        Switch.prototype.toString = function(){ return this.id; };
+
 
         var VIS = function() {
             this.nodes = null;
@@ -615,16 +699,16 @@
                 // create an array with nodes
                 var nodesArray = [];
                 for (x = 0; x < sdntrace.switches.length; x++) {
-                    node_id = sdntrace.switches[x].substring(1,16);
+                    node_id = sdntrace.switches[x].id.substring(1,16);
                     // positioning in spiral mode to help the physics animation and prevent crossing lines
                     angle = 0.1 * x;
-                    node_obj = {id: node_id, label:sdntrace.switches[x], x:(1+angle)*Math.cos(angle), y:(1+angle)*Math.sin(angle), physics:true, mass:2, borderWidth:1};
+                    node_obj = {id: node_id, label:sdntrace.switches[x].get_node_name(), x:(1+angle)*Math.cos(angle), y:(1+angle)*Math.sin(angle), physics:true, mass:2, borderWidth:1};
                     // Trace coloring
                     if (with_trace && sdntrace.trace && sdntrace.trace.length > 1) {
                         node_obj.color = sdncolor.trace_color_off;
                         for (y = 0; y < sdntrace.trace.length; y++) {
-                            if (sdntrace.trace[y].id ==  sdntrace.switches[x]) {
-                                color_code = sdntrace.get_switch_color(sdntrace.switches[x])['color']
+                            if (sdntrace.trace[y].id ==  sdntrace.switches[x].id) {
+                                color_code = sdntrace.get_switch_color(sdntrace.switches[x].id)['color']
                                 color = sdncolor.get_color(color_code)
                                 if (color) {
                                     node_obj.color = {'background' : color};
@@ -645,7 +729,7 @@
                         }
                     }
                     if (with_colors && sdntrace.switch_colors && sdntrace.switch_colors.length > 0) {
-                        color_code = sdntrace.get_switch_color(sdntrace.switches[x])['color']
+                        color_code = sdntrace.get_switch_color(sdntrace.switches[x].id)['color']
                         node_obj.color = {'background' : sdncolor.get_color(color_code)};
                     }
 
@@ -681,10 +765,10 @@
                                     if (trace_node_from_id == node_from_id && trace_node_to_id == node_to_id) {
                                         label = ''
                                         if (sdntrace.trace[z-1].port) {
-                                            label += sdntrace.trace[z-1].port + "/";
+                                            label += 'in=' + sdntrace.trace[z-1].port + "\n";
                                         }
                                         if (sdntrace.trace[z].port) {
-                                            label += sdntrace.trace[z].port;
+                                            label += 'out=' + sdntrace.trace[z].port;
                                         }
 
                                         color_code = sdntrace.get_switch_color(sdntrace.trace[z-1].id)['color']
@@ -719,7 +803,7 @@
                     if (sdntrace.has_trace_loop && sdntrace.trace && sdntrace.trace.length > 0) {
                         // selecting the first switch to loop
                         trace_node_id = sdntrace.trace[0].id.substring(1,16);
-                        // expecting just one loope, otherwise we have an error with duplicated IDs
+                        // expecting just one loop, otherwise we have an error with duplicated IDs
                         edgeObj = {id:'0_loop', from: trace_node_id, to: trace_node_id, arrows:'to', smooth: {type: "dynamic"}};
                         color_code = sdntrace.get_switch_color(sdntrace.trace[0].id)['color']
                         color = sdncolor.get_color(color_code);
@@ -844,9 +928,23 @@
             sdntrace.call_get_topology();
         }
 
+        /* Initial configuration */
+        var _initial_configuration = function() {
+            if (typeof SDNTRACE_CONF != 'undefined') {
+                // header logo img src
+                $('#id-header-logo').attr("src", SDNTRACE_CONF.header_logo_img_src);
+                // header name
+                $('#id-header-name').text(SDNTRACE_CONF.header_name);
+                // SDNTrace version
+                $('#id-span-version').text(SDNTRACE_CONF.version);
+            }
+        }
+
         /* Initial load */
         $(function() {
             DEBUG = false;
+
+            _initial_configuration();
 
             sdntrace = new SDNTrace();
             sdncolor = new SDNColor();
@@ -928,12 +1026,17 @@
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
                 </button>
-                <a class="navbar-brand" href="#">SDNTrace</a>
+                <a class="navbar-brand" href="#">
+                    <div>
+                        <span><img id="id-header-logo" class="logo-header" src="" ></span>
+                        <span id="id-header-name">SDNTrace</span>
+                    </div>
+                </a>
             </div>
             <div id="navbar" class="collapse navbar-collapse">
                 <ul class="nav navbar-nav">
                     <li class="active"><a href="#">Home</a></li>
-                    <li><a href="#about" data-toggle="modal" data-target="#gridSystemModal">About</a></li>
+                    <li><a href="#about" data-toggle="modal" data-target="#gridAboutModal">About</a></li>
                 </ul>
             </div><!--/.nav-collapse -->
         </div>
@@ -949,7 +1052,7 @@
                             <!-- Switches list -->
                             <div class="row">
                                 <div class="col-md-12">
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label for="switches_select">Switches:</label>
                                     </div>
                                     <select id="switches_select">
@@ -1006,10 +1109,10 @@
                                                                 </div>
                                                             </div>
                                                             <div class="form-group">
-                                                                <div class="col-sm-offset-2 col-sm-2">
+                                                                <div class="col-sm-offset-2 col-xs-3 col-sm-3">
                                                                     <button type="button" class="btn btn-default" id="layer2_btn">Trace Layer 2</button>
                                                                 </div>
-                                                                <div class="col-sm-8 loading-icon-div">
+                                                                <div class="col-xs-7 col-sm-7 loading-icon-div">
                                                                     <img src="./ajax-loader.gif" />
                                                                 </div>
                                                             </div>
@@ -1206,17 +1309,18 @@
         </div>
     </div><!-- /.container -->
 
-    <div id="gridSystemModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="gridSystemModalLabel">
+    <div id="gridAboutModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="gridAboutModalLabel">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                    <h4 class="modal-title" id="gridSystemModalLabel">SDNTrace</h4>
+                    <h4 class="modal-title" id="gridAboutModalLabel">SDNTrace <span id="id-span-version"></span></h4>
                 </div>
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-12">
-                            The SDNTrace was written by Jeronimo Bezerra and the source-code's available in <a href="https://github.com/jab1982/SDNTrace">GitHub</a>.
+                            <p>The SDNTrace was written by Jeronimo Bezerra, Antonio J. F. Francisco and Rogerio S. Motitsuki.</p>
+                            <p>The source-code is available on <a href="https://github.com/amlight/SDNTrace">Amlight GitHub</a>.
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1228,5 +1332,11 @@
     </div>
 </body>
 </html>
+
+
+
+
+
+
 
 
