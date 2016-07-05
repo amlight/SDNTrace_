@@ -51,6 +51,9 @@
     #collapse_topology_icon {
       vertical-align:middle;
     }
+    #id_modal_network .modal-header {
+      padding: 0;
+    }
     #mynetwork {
       height: 650px;
       border: 1px solid lightgray;
@@ -125,14 +128,6 @@
     }
   </style>
   <script>
-        // var to debug using localhost
-        var DEBUG = true;
-        // var to mock all the json calls. You must set DEBUG=true
-        var mock_json_topology = '{"0000000000000001": ["0000000000000002"], "0000000000000002": ["0000000000000001", "0000000000000003"], "0000000000000003": ["0000000000000004", "0000000000000002"], "0000000000000004": ["0000000000000003", "0000000000000005"], "0000000000000005": ["0000000000000004", "0000000000000006"], "0000000000000006": ["0000000000000005"]}';
-        var mock_json_switches = '["0000000000000003", "0000000000000005", "0000000000000004", "0000000000000002", "0000000000000006", "0000000000000001"]';
-        var mock_json_ports = '[3,2,1]';
-        var mock_json_trace = '[{"trace": {"port": 2, "dpid": "0000000000000002"}}, {"trace": {"port": 2, "dpid": "0000000000000003"}}, {"trace": {"port": 2, "dpid": "0000000000000004"}}, "loop"]';
-
         var sdntrace = '';
         var sdncolor = '';
 
@@ -294,11 +289,7 @@
 
                 var ajax_done = function(json) {
                     var jsonObj;
-                    if (DEBUG) {
-                        jsonObj= jQuery.parseJSON(mock_json_switches);
-                    } else {
-                        jsonObj= json;
-                    }
+                    jsonObj= json;
                     for (var x = 0; x < jsonObj.length; x++) {
                         // storing switch values
                         sdntrace.switches.push(new Switch(jsonObj[x]));
@@ -331,11 +322,7 @@
 
                 var ajax_done = function(json) {
                     var jsonObj;
-                    if (DEBUG) {
-                        jsonObj= jQuery.parseJSON(mock_json_topology);
-                    } else {
-                        jsonObj= json;
-                    }
+                    jsonObj= json;
 
                     // verify if the json is not a '{}' response
                     if (!jQuery.isEmptyObject(jsonObj)) {
@@ -380,11 +367,8 @@
 
                 var ajax_done = function(json) {
                     var jsonObj;
-                    if (DEBUG) {
-                        jsonObj= jQuery.parseJSON(mock_json_ports);
-                    } else {
-                        jsonObj= json;
-                    }
+                    jsonObj= json;
+
                     html_content = ""
                     html_content += "<div class='list-group'  data-toggle='buttons'>";
                     $.each( jsonObj, function( key, val ) {
@@ -563,11 +547,7 @@
 
                 var ajax_done = function(json) {
                     var jsonObj;
-                    if (DEBUG) {
-                        jsonObj= jQuery.parseJSON(mock_json_trace);
-                    } else {
-                        jsonObj= json;
-                    }
+                    jsonObj= json;
 
                     // reseting sdntrace tracing variables
                     sdntrace.has_trace_loop = false;
@@ -608,11 +588,7 @@
                 })
                 .fail(function() {
                     console.log( "error" );
-                    if (DEBUG) {
-                        ajax_done();
-                    } else {
-                        $('#trace-result-content').html("<div class='bg-danger'>Trace error.</div>");
-                    }
+                    $('#trace-result-content').html("<div class='bg-danger'>Trace error.</div>");
                 })
                 .always(function() {
                     $('.loading-icon-div').hide();
@@ -942,8 +918,6 @@
 
         /* Initial load */
         $(function() {
-            DEBUG = false;
-
             _initial_configuration();
 
             sdntrace = new SDNTrace();
@@ -1262,13 +1236,13 @@
                         <div class="panel-heading">
                             <a data-toggle="collapse" href="#collapse_topology_panel">Topology</a>
                             <span id="collapse_topology_icon" class='glyphicon glyphicon-chevron-down' aria-hidden='true'></span>
-                            <button id="render_btn" type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#myModal3">
+                            <button id="render_btn" type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#id_modal_network">
                               Render topology
                             </button>
-                            <button id="render_colors_btn" type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#myModal3">
+                            <button id="render_colors_btn" type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#id_modal_network">
                               Render colors
                             </button>
-                            <button id="render_trace_btn" type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#myModal3">
+                            <button id="render_trace_btn" type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#id_modal_network">
                               Render trace
                             </button>
                         </div>
@@ -1290,10 +1264,13 @@
             <div class="col-md-12">
 
 <!-- Modal -->
-<div class="modal fade" id="myModal3" tabindex="-1" role="dialog"
+<div class="modal fade" id="id_modal_network" tabindex="-1" role="dialog"
      aria-labelledby="myModalLabel5" aria-hidden="true">
   <div class="modal-dialog " role="document">
     <div class="modal-content" style="background-color:white">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        </div>
         <!--<button type="button" id="render_btn2" class="btn btn-primary btn-sm">Render topology</button>-->
         <!--<button type="button" id="render_colors_btn2" class="btn btn-primary btn-sm">Render colors</button>-->
         <!--<button type="button" id="render_trace_btn23" class="btn btn-primary btn-sm">Render trace</button>-->
