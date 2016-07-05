@@ -46,9 +46,9 @@ class SDNTraceController(ControllerBase):
     def print_colors(self, req, **kwargs):
         return self._colors(req, **kwargs)
 
-    @route('sdntrace', '/sdntrace/switches/traceid/{tid}', methods=['GET'])
+    @route('sdntrace', '/sdntrace/switches/{dpid}/flows', methods=['GET'])
     def print_trace_id(self, req, **kwargs):
-        return self._traceid(req, **kwargs)
+        return self._listflows(req, **kwargs)
 
     @route('sdntrace', '/sdntrace/trace', methods=['PUT'])
     def run_trace(self, req, **kwargs):
@@ -93,9 +93,14 @@ class SDNTraceController(ControllerBase):
         body = json.dumps(colors)
         return Response(content_type='application/json', body=body)
 
-    def _traceid(self, req, **kwargs):
-        traceid = ""
-        body = json.dumps(traceid)
+    def _listflows(self, req, **kwargs):
+        dpid = kwargs['dpid']
+        flows = []
+        for node in self.sdntrace_app.node_list:
+            if node.name == dpid:
+                flows = node.flows
+                print flows
+        body = json.dumps(flows)
         return Response(content_type='application/json', body=body)
 
     def _trace(self, req, **kwargs):
@@ -115,5 +120,6 @@ class SDNTraceController(ControllerBase):
         # Find a way to create a thread
         print 'request_id: %s' % body
         trace = nodes_app.process_trace_req(new_entry, request_id)
+        print trace
         body = json.dumps(trace)
         return Response(content_type='application/json', body=body)

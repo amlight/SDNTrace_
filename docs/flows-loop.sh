@@ -1,6 +1,5 @@
-
-# AmLight Topology with working flows
-# It is possible to ping from clH2 to miH3
+# AmLight Topology with loop
+# It is not possible to ping from clH2 to miH3
 # clH2 ping miH3
 
 #DPID Name Port
@@ -23,21 +22,21 @@
 #sol3-eth1<->spH1-eth0 (OK OK)
 
 
-# circuit from miH3 -> clH2
+# circuit from miH3 -> clH2 --> LOOPED!
 # mia1
 ovs-ofctl add-flow tcp:192.168.56.103:6636 "in_port=1 action=mod_vlan_vid=101,output:2"
 
 # mia2
-ovs-ofctl add-flow tcp:192.168.56.103:6637 "in_port=1,dl_vlan=101 action=mod_vlan_vid=102,output:3"
+ovs-ofctl add-flow tcp:192.168.56.103:6637 "in_port=1,dl_vlan=101 action=mod_vlan_vid=102,output:2"
 
-# ch5
-ovs-ofctl add-flow tcp:192.168.56.103:6635 "in_port=1,dl_vlan=102 action=mod_vlan_vid=105,output:2"
+# sol3
+ovs-ofctl add-flow tcp:192.168.56.103:6638 "in_port=3,dl_vlan=102 action=mod_vlan_vid=103,output:2"
 
-# ch4
-ovs-ofctl add-flow tcp:192.168.56.103:6634 "in_port=2,dl_vlan=105 action=strip_vlan,output:1"
+# mia1
+ovs-ofctl add-flow tcp:192.168.56.103:6636 "in_port=3,dl_vlan=103 action=mod_vlan_vid=101,output:2"
 
 
-# circuit from clH2 -> miH3
+# circuit from clH2 -> miH3 --> OK!
 # ch4
 ovs-ofctl add-flow tcp:192.168.56.103:6634 "in_port=1 action=mod_vlan_vid=104,output:3"
 
