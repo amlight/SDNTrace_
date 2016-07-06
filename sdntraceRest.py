@@ -64,6 +64,7 @@ class SDNTraceController(ControllerBase):
         body = "0"  # in case user requests before switch appears
         for node in self.sdntrace_app.node_list:
             if node.name == dpid:
+                #ports = node.ports_dict
                 ports = node.ports
                 body = json.dumps(ports)
         return Response(content_type='application/json', body=body)
@@ -108,17 +109,22 @@ class SDNTraceController(ControllerBase):
             Trace method.
         """
         nodes_app = self.sdntrace_app
-        new_entry = eval(req.body)
+        try:
+            new_entry = eval(req.body)
+        except:
+            print "malformed request"
+            body = json.dumps({'error': "malformed request"})
+            return Response(content_type='application/json', body=body)
+
         global request_id
         # First, generate an ID to be send back to user
         # This ID will be used as the data in the packet
         request_id += 1
         result_json = {'request_id': request_id}
         body = json.dumps(result_json)
+        print 'request_id: %s' % body
 
         # Process trace
-        # Find a way to create a thread
-        print 'request_id: %s' % body
         trace = nodes_app.process_trace_req(new_entry, request_id)
         print trace
         body = json.dumps(trace)
