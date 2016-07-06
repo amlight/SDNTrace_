@@ -54,6 +54,18 @@
     #id_modal_network .modal-header {
       padding: 0;
     }
+    /* Setting modal network to fullscreen */
+    #id_modal_network .modal-dialog {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    #id_modal_network .modal-content {
+      height: auto;
+      min-height: 100%;
+      border-radius: 0;
+    }
     #mynetwork {
       height: 650px;
       border: 1px solid lightgray;
@@ -187,7 +199,7 @@
                     html_content += "<option>---</option>";
 
                     for (var x = 0; x < sdntrace.switches.length; x++) {
-                        html_content += "<option value='" + sdntrace.switches[x].id + "'>" + sdntrace.switches[x].get_verbose_name();
+                        html_content += "<option value='" + sdntrace.switches[x].id + "'>" + sdntrace.switches[x].get_name_or_id();
                         html_content += "</option>";
                     }
                     $('#switches_select').html(html_content);
@@ -213,7 +225,7 @@
 
                         // display nice switch name
                         var temp_switch = new Switch(sdntrace.topology[x]['key']);
-                        html_content += temp_switch.get_verbose_name();
+                        html_content += temp_switch.get_name_or_id();
 
                         if (sdntrace.switch_colors && sdntrace.switch_colors.length > 0) {
                             var obj_color = sdntrace.get_switch_color(sdntrace.topology[x]['key']);
@@ -232,7 +244,7 @@
                                 html_content += "<li>"
                                 // display nice switch name
                                 var temp_switch = new Switch(val_array[y]);
-                                html_content += temp_switch.get_verbose_name();
+                                html_content += temp_switch.get_name_or_id();
 
                                 html_content += "</li>"
                             }
@@ -559,7 +571,7 @@
                     html_content = ""
                     html_content += "<div class='row'><div class='col-sm-12'>Trace result: </div></div><div class='row'>";
                     html_content += "<div class='col-sm-10 col-md-5'><table class='table table-striped'>"
-                    html_content += "<thead><tr><th>DPID</th><td>port</th></tr></thead>"
+                    html_content += "<thead><tr><th>Switch/DPID</th><td>Incoming Port</th></tr></thead>"
                     html_content += "<tbody>"
 
                     $.each( jsonObj, function( key, val ) {
@@ -568,7 +580,12 @@
                             // flag looping switch.
                             sdntrace.has_trace_loop = true;
                         } else {
-                            html_content += "<tr><td>" + val['trace']['dpid'] + "</td>"
+                            html_content += "<tr><td>";
+
+                            var temp_switch = new Switch(val['trace']['dpid']);
+                            html_content += temp_switch.get_name_or_id();
+
+                            html_content += "</td>";
                             html_content += "<td>" + val['trace']['port'] + "</td></tr>";
                             sdntrace.trace.push({id:val['trace']['dpid'], port:val['trace']['port']});
                         }
@@ -615,6 +632,21 @@
                 }
                 return null;
             }
+            
+            
+            /**
+             * Get switch fantasy name from configuration data.
+             * If there is no name return the switch ID.
+             */
+            this.get_name_or_id = function() {
+                if (typeof SDNTRACE_CONF != 'undefined') {
+                    var name = SDNTRACE_CONF.dict[this.id];
+                    if (name != undefined) {
+                        return name;
+                    }
+                }
+                return this.id;
+            }
 
             /**
              * Get switch fantasy name from configuration data.
@@ -638,7 +670,7 @@
                 if (typeof SDNTRACE_CONF != 'undefined') {
                     var name = SDNTRACE_CONF.dict[this.id];
                     if (name != undefined) {
-                        return this.id + '\n' + name;
+                        return name;
                     }
                 }
                 return this.id;
@@ -878,10 +910,23 @@
 
         /* Form validation. */
         var _initialize_form_validation = function(){
-            $('#l3_nw_src').mask('099.099.099.099');
-            $('#l3_nw_dst').mask('099.099.099.099');
-            $('#lf_nw_src').mask('099.099.099.099');
-            $('#lf_nw_dst').mask('099.099.099.099');
+            // IPv4 mask
+            // $('#l3_nw_src').mask('099.099.099.099');
+            // $('#l3_nw_dst').mask('099.099.099.099');
+            // $('#lf_nw_src').mask('099.099.099.099');
+            // $('#lf_nw_dst').mask('099.099.099.099');
+            // VLAN
+            $('#l2_dl_vlan').mask('0#');
+            $('#l3_dl_vlan').mask('0#');
+            $('#lf_dl_vlan').mask('0#');
+            // TCP
+            $('#lf_tp_src').mask('0#');
+            $('#lf_tp_dst').mask('0#');
+            $('#l3_tp_src').mask('0#');
+            $('#l3_tp_dst').mask('0#');
+            // TOS
+            $('#lf_nw_tos').mask('0#');
+            $('#l3_nw_tos').mask('0#');
         }
 
         /* Initial data lod */
@@ -1276,7 +1321,7 @@
         <!--<button type="button" id="render_trace_btn23" class="btn btn-primary btn-sm">Render trace</button>-->
         <div id="mynetwork">
             <div class="vis-network" tabindex="900" style="position: relative; overflow: hidden; touch-action: pan-y; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;">
-                <canvas width="500" height="850" style="position: relative; touch-action: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;"></canvas>
+                <canvas id="vis-canvas" width="500" height="850" style="position: relative; touch-action: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;"></canvas>
             </div>
         </div>
 </div>
