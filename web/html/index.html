@@ -117,9 +117,9 @@
       display:none;
     }
     .switch-port-a {
-      width: 5em;
+      width: 8em;
       padding: 0.2em 1em 0.2em 1em;
-      text-align: right;
+      text-align: left;
     }
     .switch-port-a.active, .switch-port-a.active:hover, .switch-port-a.active:focus {
       color: #555;
@@ -227,6 +227,7 @@
                         var temp_switch = new Switch(sdntrace.topology[x]['key']);
                         html_content += temp_switch.get_name_or_id();
 
+                        // start left content, origin switch
                         if (sdntrace.switch_colors && sdntrace.switch_colors.length > 0) {
                             var obj_color = sdntrace.get_switch_color(sdntrace.topology[x]['key']);
                             html_content += "</td><td><span style='color:" + sdncolor.get_color(obj_color['color']) +"'>" + obj_color['color'] + "</span>";
@@ -235,17 +236,19 @@
                             html_content += "</td><td>";
                         }
                         html_content += "</td>";
+                        // end left content, origin switch
+
                         html_content += "<td><span class='glyphicon glyphicon-arrow-right' aria-hidden='true'></span></td>";
                         html_content += "<td>"
 
-                        if (sdntrace.topology[x]['val']) {
+                        // start right content, destination switch
+                        if (sdntrace.topology[x]['val'] && sdntrace.topology[x]['val'].length > 0) {
                             var val_array = ("" + sdntrace.topology[x]['val']).split(",");
                             for (var y = 0; y < val_array.length; y++) {
                                 html_content += "<li>"
                                 // display nice switch name
                                 var temp_switch = new Switch(val_array[y]);
                                 html_content += temp_switch.get_name_or_id();
-
                                 html_content += "</li>"
                             }
                             if (sdntrace.switch_colors && sdntrace.switch_colors.length > 0) {
@@ -258,8 +261,11 @@
                             } else {
                                 html_content += "</td><td>";
                             }
+                        } else {
+                            html_content += "</td><td>";
                         }
                         html_content += "</td></tr>"
+                        // end right content, destination switch
                     }
                     html_content += "</tbody></table>";
                     html_content += "</div>";
@@ -307,6 +313,8 @@
                         sdntrace.switches.push(new Switch(jsonObj[x]));
                     }
                     sdntrace.switches = sdntrace.switches.sort();
+                    sdntrace.switches = array_unique_fast(sdntrace.switches);
+
                     sdntrace.render_html_switches();
                 }
 
@@ -383,23 +391,32 @@
 
                     html_content = ""
                     html_content += "<div class='list-group'  data-toggle='buttons'>";
+                    var has_port = false;
                     $.each( jsonObj, function( key, val ) {
-                        html_content += "<a href='#' class='list-group-item switch-port-a'>" + val + "</a>";
-                    });
-                    html_content += "</div>";
+                        var switch_port = new Port(key, val);
 
+                        html_content += "<a href='#' class='list-group-item switch-port-a' data-port-id='" + switch_port.id +"'>" + switch_port.label + "</a>";
+                        has_port = true;
+                    });
+                    if (!has_port) {
+                        html_content += "This switch has no OpenFlow ports enabled.";
+                    }
+                    html_content += "</div>";
                     $('#switch-ports-content').html(html_content);
 
-                    $('.switch-port-a').click(function() {
-                        $('#switch-ports-layer-form-content').show();
-                        $('#switch-ports-layer-form-content a:first').tab('show');
-                        // storing the clicked port value
-                        $('#switch_port_hidden').val($(this).html());
-                        // hide trace result panel
-                        $('#trace-result-panel').hide();
-                        $('.switch-port-a').removeClass('active');
-                        $(this).addClass('active');
-                    });
+                    if (has_port) {
+                        $('.switch-port-a').click(function() {
+                            $('#switch-ports-layer-form-content').show();
+                            $('#switch-ports-layer-form-content a:first').tab('show');
+                            // storing the clicked port value
+                            var port_id = $(this).attr('data-port-id');
+                            $('#switch_port_hidden').val(port_id);
+                            // hide trace result panel
+                            $('#trace-result-panel').hide();
+                            $('.switch-port-a').removeClass('active');
+                            $(this).addClass('active');
+                        });
+                    }
                 }
 
                 var jqxhr = $.ajax({
@@ -603,9 +620,12 @@
                 }).done(function(json) {
                     ajax_done(json);
                 })
-                .fail(function() {
-                    console.log( "error" );
-                    $('#trace-result-content').html("<div class='bg-danger'>Trace error.</div>");
+                .fail(function(responseObj) {
+                    if (responseObj.responseJSON) {
+                        $('#trace-result-content').html("<div class='bg-danger'>"+responseObj.responseJSON.error+"</div>");
+                    } else {
+                        $('#trace-result-content').html("<div class='bg-danger'>Trace error.</div>");
+                    }
                 })
                 .always(function() {
                     $('.loading-icon-div').hide();
@@ -678,6 +698,17 @@
         }
         // Return switch id if the class is used with strings
         Switch.prototype.toString = function(){ return this.id; };
+
+
+        /**
+         * Switch port representation.
+         */
+        var Port = function(port_id, label) {
+            this.id = port_id;
+            this.label = label;
+        }
+        // Return switch port id if the class is used with strings
+        Port.prototype.toString = function(){ return this.id; };
 
 
         var VIS = function() {
@@ -1033,6 +1064,24 @@
             // initial data load (switch list, topology, colors)
             _initial_data_load();
         });
+
+        /**
+         * Helper function to remove duplicates from an array.
+         */
+        function array_unique_fast(a) {
+            var seen = {};
+            var out = [];
+            var len = a.length;
+            var j = 0;
+            for(var i = 0; i < len; i++) {
+                 var item = a[i];
+                 if(seen[item] !== 1) {
+                       seen[item] = 1;
+                       out[j++] = item;
+                 }
+            }
+            return out;
+        }
   </script>
 </head>
 <body>
@@ -1181,10 +1230,10 @@
                                                                 </div>
                                                             </div>
                                                             <div class="form-group">
-                                                                <div class="col-sm-offset-2 col-sm-2">
+                                                               <div class="col-sm-offset-2 col-xs-3 col-sm-3">
                                                                     <button type="button" class="btn btn-default" id="layer3_btn">Trace Layer 3</button>
                                                                 </div>
-                                                                <div class="col-sm-8 loading-icon-div">
+                                                                <div class="col-xs-7 col-sm-7 loading-icon-div">
                                                                     <img src="./ajax-loader.gif" />
                                                                 </div>
                                                             </div>
@@ -1252,10 +1301,10 @@
                                                                 </div>
                                                             </div>
                                                             <div class="form-group">
-                                                                <div class="col-sm-offset-2 col-sm-10">
+                                                                <div class="col-sm-offset-2 col-xs-3 col-sm-3">
                                                                     <button type="button" class="btn btn-default" id="layerfull_btn">Trace Full</button>
                                                                 </div>
-                                                                <div class="col-sm-8 loading-icon-div">
+'                                                                <div class="col-xs-7 col-sm-7 loading-icon-div">
                                                                     <img src="./ajax-loader.gif" />
                                                                 </div>
                                                             </div>
