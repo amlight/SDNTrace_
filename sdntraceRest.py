@@ -64,8 +64,8 @@ class SDNTraceController(ControllerBase):
         body = "0"  # in case user requests before switch appears
         for node in self.sdntrace_app.node_list:
             if node.name == dpid:
-                #ports = node.ports_dict
-                ports = node.ports
+                ports = node.ports_dict
+                #ports = node.ports
                 body = json.dumps(ports)
         return Response(content_type='application/json', body=body)
 
