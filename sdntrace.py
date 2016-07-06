@@ -23,7 +23,7 @@ class OFSwitch:
     def __init__(self, ev):
         self.obj = ev
         self.dpid = ev.msg.datapath_id
-        self.ports = self._extract_ports()
+        self.ports, self.ports_dict = self._extract_ports()
         # To be used for Coloring
         self.adjacencies_list = []
         self.color = "0"
@@ -58,15 +58,18 @@ class OFSwitch:
         ofproto = self.obj.msg.datapath.ofproto
         offset = ofproto.OFP_SWITCH_FEATURES_SIZE
         port_list = []
+        ports_dict = {}
 
         for _i in range(num_ports):
             if _i < ofproto.OFPP_MAX:
                 port = OFPPhyPort.parser(self.obj.msg.buf, offset)
                 if port.port_no < 65280:  # Special ports are 65280+
                     port_list.append(port.port_no)
+                    port_list.sort()
+                    ports_dict[port.port_no] = port.name
                 offset += ofproto.OFP_PHY_PORT_SIZE
 
-        return port_list
+        return port_list, ports_dict
 
 
 # These are configurable on the sdntrace.conf file

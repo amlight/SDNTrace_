@@ -5,9 +5,9 @@
 #DPID Name Port
 #01 mia1 6636
 #02 mia2 6637
-#05 ch5 6635
 #03 sol3 6638
 #04 ch4 6634
+#05 ch5 6635
 
 #ch4-eth3<->sol3-eth4 (OK OK)
 #ch5-eth2<->ch4-eth2 (OK OK)
