@@ -131,9 +131,10 @@ def process_probe_packet(ev, pkt):
         if pkt_vlan.pcp is not 0:
             # Validate to confirm it is a probe
             pkt_tcp = pkt.get_protocols(tcp.tcp)[0]
-            if pkt_tcp.dst_port == 1 and pkt_tcp.src_port == 1:
+            # commented line below.
+            #if pkt_tcp.dst_port == 1 and pkt_tcp.src_port == 1:
                 #print 'valid'
-                return (pktIn_dpid, pktIn_port, pkt[4], pkt, ev)
+            return (pktIn_dpid, pktIn_port, pkt[4], pkt, ev)
         else:
             print 'ignore'
     return False

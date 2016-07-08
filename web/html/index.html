@@ -807,7 +807,7 @@
                                             label += 'in=' + sdntrace.trace[z-1].port + "\n";
                                         }
                                         if (sdntrace.trace[z].port) {
-                                            label += 'out=' + sdntrace.trace[z].port;
+                                            label += 'next_in=' + sdntrace.trace[z].port;
                                         }
 
                                         color_code = sdntrace.get_switch_color(sdntrace.trace[z-1].id)['color']

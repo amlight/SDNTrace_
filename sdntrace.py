@@ -69,6 +69,7 @@ class OFSwitch:
                     ports_dict[port.port_no] = port.name
                 offset += ofproto.OFP_PHY_PORT_SIZE
 
+        print ports_dict
         return port_list, ports_dict
 
 

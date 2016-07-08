@@ -67,7 +67,15 @@ def generate_trace_pkt(entries, color, r_id):
         trace = entries['trace']
         switch = trace['switch']
         eth = trace['eth']
+    except:
+        pass
+
+    try:
         ip = trace['ip']
+    except:
+        pass
+
+    try:
         tp = trace['tp']
     except:
         pass
