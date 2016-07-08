@@ -103,6 +103,12 @@ def remove_switch(pkt, ev):
 
     """
     for link in pkt.links:
+        # Bug with Mininet or Ryu - datapath.id is None
+        # Start and Stop Mininet very fast to see the error
+        # Comment line below first
+        if ev.datapath.id is None:
+            return
+
         dpid = '%016x' % ev.datapath.id
         if dpid in link:
             pkt.links.remove(link)

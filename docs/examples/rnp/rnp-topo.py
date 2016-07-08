@@ -82,11 +82,13 @@ class MyTopo( Topo ):
         self.addLink(pbcSw, peSw)
         self.addLink(spSw, miaSw)
         self.addLink(ceSw, miaSw)
+        self.addLink(rsSw, scSw)
 
         # Add hosts
         rsHost = self.addHost('h1')
         miaHost = self.addHost('h2')
         baHost = self.addHost('h3')
+        acHost = self.addHost('h4')
 
         # Add links to hosts
         self.addLink(rsHost, rsSw)
