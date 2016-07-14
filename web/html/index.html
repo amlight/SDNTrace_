@@ -67,7 +67,7 @@
       border-radius: 0;
     }
     #mynetwork {
-      height: 650px;
+      /* height: auto; */
       border: 1px solid lightgray;
     }
     #render_colors_btn,
@@ -137,6 +137,10 @@
     .trace-result-panel,
     .trace-result-content {
       display:none;
+    }
+    .required-field-msg {
+      font-size: smaller;
+      font-weight: bold;
     }
   </style>
   <script>
@@ -454,7 +458,7 @@
                 if (layer2.trace.eth.dl_vlan) {
                     layer2.trace.eth.dl_vlan = parseInt(layer2.trace.eth.dl_vlan, 10);
                 }
-                layer2.trace.eth.dl_type = $('#l2_dl_type').val();
+                layer2.trace.eth.dl_type = parseInt($('#l2_dl_type').val());
 
                 layer2 = sdntrace._remove_empty_json_values(layer2);
                 var layer2String = JSON.stringify(layer2);
@@ -522,7 +526,7 @@
                 if (layerfull.trace.eth.dl_vlan) {
                     layerfull.trace.eth.dl_vlan = parseInt(layerfull.trace.eth.dl_vlan, 10);
                 }
-                layerfull.trace.eth.dl_type = $('#lf_dl_type').val();
+                layerfull.trace.eth.dl_type = parseInt($('#lf_dl_type').val());
 
                 layerfull.trace.ip = new Object();
                 layerfull.trace.ip.nw_src = $('#lf_nw_src').val();
@@ -885,11 +889,15 @@
                       },
                       "physics": {
                         "barnesHut": {
-                          "springLength": 100,
-                          "springConstant": 0.05,
-                          "avoidOverlap": 0.1
+                          "springLength": 150,
+                          "springConstant": 0.02
                         },
                         "minVelocity": 0.75,
+                        "stabilize": true,
+                        "stabilizationIterations": 1000,
+                        "zoomExtentOnStabilize": true,
+                        "navigation": true,
+                        "keyboard": true
                       }
                 }
                 var flag_first_afterDrawing = true;
@@ -989,6 +997,9 @@
                 $('#id-header-name').text(SDNTRACE_CONF.header_name);
                 // SDNTrace version
                 $('#id-span-version').text(SDNTRACE_CONF.version);
+                $('#id_about_roadmap').html(SDNTRACE_CONF.about_roadmap);
+
+
             }
         }
 
@@ -1153,6 +1164,11 @@
                                                     <div class="panel-body">
                                                         <form id="maskFormLayer2" method="post" class="form-horizontal">
                                                             <div class="form-group">
+                                                                <div class="col-sm-offset-2 col-xs-12 col-sm-12 required-field-msg">
+                                                                    * Indicates a required field
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
                                                                 <label for="l2_dl_src" class="col-sm-2 control-label">MAC Origem</label>
                                                                 <div class="col-sm-10">
                                                                     <input class="form-control" type="text" id="l2_dl_src" name="l2_dl_src" placeholder="MAC Origem">
@@ -1165,7 +1181,7 @@
                                                                 </div>
                                                             </div>
                                                             <div class="form-group">
-                                                                <label for="l2_dl_vlan" class="col-sm-2 control-label">VLAN</label>
+                                                                <label for="l2_dl_vlan" class="col-sm-2 control-label">VLAN *</label>
                                                                 <div class="col-sm-10">
                                                                     <input class="form-control" type="text" id="l2_dl_vlan" name="l2_dl_vlan" placeholder="VLAN">
                                                                 </div>
@@ -1194,7 +1210,12 @@
                                                     <div class="panel-body">
                                                         <form id="maskFormLayer3" method="post" class="form-horizontal">
                                                             <div class="form-group">
-                                                                <label for="l3_dl_vlan" class="col-sm-2 control-label">VLAN</label>
+                                                                <div class="col-sm-offset-2 col-xs-12 col-sm-12 required-field-msg">
+                                                                    * Indicates a required field
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label for="l3_dl_vlan" class="col-sm-2 control-label">VLAN *</label>
                                                                 <div class="col-sm-10">
                                                                     <input class="form-control" type="text" id="l3_dl_vlan" name="l3_dl_vlan" placeholder="VLAN">
                                                                 </div>
@@ -1247,6 +1268,11 @@
                                                     <div class="panel-body">
                                                         <form id="maskFormLayerFull" method="post" class="form-horizontal">
                                                             <div class="form-group">
+                                                                <div class="col-sm-offset-2 col-xs-12 col-sm-12 required-field-msg">
+                                                                    * Indicates a required field
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
                                                                 <label for="lf_dl_src" class="col-sm-2 control-label">MAC Origem</label>
                                                                 <div class="col-sm-10">
                                                                     <input class="form-control" type="text" id="lf_dl_src" name="lf_dl_src" placeholder="MAC Origem">
@@ -1259,7 +1285,7 @@
                                                                 </div>
                                                             </div>
                                                             <div class="form-group">
-                                                                <label for="lf_dl_vlan" class="col-sm-2 control-label">VLAN</label>
+                                                                <label for="lf_dl_vlan" class="col-sm-2 control-label">VLAN *</label>
                                                                 <div class="col-sm-10">
                                                                     <input class="form-control" type="text" id="lf_dl_vlan" name="lf_dl_vlan" placeholder="VLAN">
                                                                 </div>
@@ -1304,7 +1330,7 @@
                                                                 <div class="col-sm-offset-2 col-xs-3 col-sm-3">
                                                                     <button type="button" class="btn btn-default" id="layerfull_btn">Trace Full</button>
                                                                 </div>
-'                                                                <div class="col-xs-7 col-sm-7 loading-icon-div">
+                                                                <div class="col-xs-7 col-sm-7 loading-icon-div">
                                                                     <img src="./ajax-loader.gif" />
                                                                 </div>
                                                             </div>
@@ -1351,35 +1377,27 @@
                 </div>
             </div>
             <div class="row">
-<!-- Button trigger modal -->
-
             </div>
-
             <div class="col-md-12">
-
-<!-- Modal -->
-<div class="modal fade" id="id_modal_network" tabindex="-1" role="dialog"
-     aria-labelledby="myModalLabel5" aria-hidden="true">
-  <div class="modal-dialog " role="document">
-    <div class="modal-content" style="background-color:white">
-        <div class="modal-header">
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-        </div>
-        <!--<button type="button" id="render_btn2" class="btn btn-primary btn-sm">Render topology</button>-->
-        <!--<button type="button" id="render_colors_btn2" class="btn btn-primary btn-sm">Render colors</button>-->
-        <!--<button type="button" id="render_trace_btn23" class="btn btn-primary btn-sm">Render trace</button>-->
-        <div id="mynetwork">
-            <div class="vis-network" tabindex="900" style="position: relative; overflow: hidden; touch-action: pan-y; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;">
-                <canvas id="vis-canvas" width="500" height="850" style="position: relative; touch-action: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;"></canvas>
+                <!-- Modal -->
+                <div class="modal fade" id="id_modal_network" tabindex="-1" role="dialog"
+                     aria-labelledby="myModalLabel5" aria-hidden="true">
+                  <div class="modal-dialog " role="document">
+                    <div class="modal-content" style="background-color:white">
+                        <div class="modal-header">
+                          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        </div>
+                        <div id="mynetwork">
+                            <div class="vis-network" tabindex="900" style="position: relative; overflow: hidden; touch-action: pan-y; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;">
+                                <canvas id="vis-canvas" width="500" height="850" style="position: relative; touch-action: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+                </div>
             </div>
         </div>
-</div>
-  </div>
-</div>
-            </div>
-        </div>
-    </div><!-- /.container -->
-
+    </div>
     <div id="gridAboutModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="gridAboutModalLabel">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
@@ -1393,6 +1411,10 @@
                             <p>The SDNTrace was written by Jeronimo Bezerra, Antonio J. F. Francisco and Rogerio S. Motitsuki.</p>
                             <p>This tool is based upon work supported by the National Science Foundation under Grant No. ACI-1451018, IRNC BACKBONE: Americas Lightpaths Express and Protect. </p>
                             <p>The source-code is available on <a href="https://github.com/amlight/SDNTrace">AmLight's GitHub</a>.
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div id="id_about_roadmap" class="col-md-12">
                         </div>
                     </div>
                     <div class="modal-footer">
