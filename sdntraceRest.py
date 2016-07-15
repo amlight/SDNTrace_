@@ -127,10 +127,11 @@ class SDNTraceController(ControllerBase):
 
             # Process trace
             trace = nodes_app.process_trace_req(new_entry, request_id)
-            print trace
+            print 'trace: %s' % trace
             body = json.dumps(trace)
             return Response(content_type='application/json', body=body)
         except Exception, e:
+            print 'error: %s' % e
             body = json.dumps({'error': '%s' % str(e)})
             return Response(content_type='application/json', body=body, status=500)
 

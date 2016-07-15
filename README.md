@@ -13,4 +13,3 @@ Add a log method to SDNTrace class
 
 
 
-Download all JS libraries to Web/html/lib

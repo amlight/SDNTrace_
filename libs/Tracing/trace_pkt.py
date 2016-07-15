@@ -80,7 +80,6 @@ def generate_trace_pkt(entries, color, r_id):
     except:
         pass
 
-
     if len(switch) > 0:
         dpid, in_port = prepare_switch(switch, dpid, in_port)
 
@@ -96,20 +95,23 @@ def generate_trace_pkt(entries, color, r_id):
     pkt = packet.Packet()
 
     eth_pkt = ethernet.ethernet(dst=dl_dst, src=dl_src, ethertype=33024)
-    vlan_pkt = vlan.vlan(vid=dl_vlan, ethertype=dl_type, pcp=int(color, 2))
+    vlan_pkt = vlan.vlan(vid=dl_vlan, ethertype=int(dl_type), pcp=int(color, 2))
+
     pkt.add_protocol(eth_pkt)
     pkt.add_protocol(vlan_pkt)
 
-    if dl_type == 2048:
+    if int(dl_type) == 2048:
+
         ip_pkt = ipv4.ipv4(dst=str(nw_dst), src=str(nw_src), tos=nw_tos,
                            proto=6)
         pkt.add_protocol(ip_pkt)
-        tp_pkt = tcp.tcp(dst_port=tp_dst, src_port=tp_src)
+        tp_pkt = tcp.tcp(dst_port=int(tp_dst), src_port=int(tp_src))
         pkt.add_protocol(tp_pkt)
         data = str(r_id)   # this will be the ID
         pkt.add_protocol(data)
 
     pkt.serialize()
+
     return in_port, pkt
 
 

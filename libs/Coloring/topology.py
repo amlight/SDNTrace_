@@ -84,12 +84,17 @@ def process_port_status(pkt, ev):
         if node.dpid is datapath.id:
             break
 
+    if msg.desc.port_no > 65530:
+        return
+
     if msg.reason is 1:
         if msg.desc.port_no in node.ports:
             node.ports.remove(msg.desc.port_no)
+            del node.ports_dict[msg.desc.port_no]
     else:
         if msg.desc.port_no not in node.ports:
             node.ports.append(msg.desc.port_no)
+            node.ports_dict[msg.desc.port_no] = msg.desc.name
 
 
 def remove_switch(pkt, ev):

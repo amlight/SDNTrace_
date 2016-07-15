@@ -68,7 +68,7 @@ class OFSwitch:
                     port_list.sort()
                     ports_dict[port.port_no] = port.name
                 offset += ofproto.OFP_PHY_PORT_SIZE
- 
+
         return port_list, ports_dict
 
 
