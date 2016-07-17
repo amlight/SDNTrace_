@@ -8,5 +8,7 @@ var SDNTRACE_CONF = {
         "0000000000000003": "SouthernLight",
         "0000000000000004": "AndesLight1",
         "0000000000000005": "AndesLight2",
-    }
+    },
+    about_roadmap: "<h4>Roadmap</h4>"+
+                   "<li>New Features...</li>",
 }
