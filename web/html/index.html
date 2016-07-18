@@ -458,7 +458,10 @@
                 if (layer2.trace.eth.dl_vlan) {
                     layer2.trace.eth.dl_vlan = parseInt(layer2.trace.eth.dl_vlan, 10);
                 }
-                layer2.trace.eth.dl_type = parseInt($('#l2_dl_type').val());
+                layer2.trace.eth.dl_type = $('#l2_dl_type').val();
+                if (layer2.trace.eth.dl_type) {
+                    layer2.trace.eth.dl_type = parseInt(layer2.trace.eth.dl_type, 10);
+                }
 
                 layer2 = sdntrace._remove_empty_json_values(layer2);
                 var layer2String = JSON.stringify(layer2);
@@ -526,7 +529,11 @@
                 if (layerfull.trace.eth.dl_vlan) {
                     layerfull.trace.eth.dl_vlan = parseInt(layerfull.trace.eth.dl_vlan, 10);
                 }
-                layerfull.trace.eth.dl_type = parseInt($('#lf_dl_type').val());
+
+                layerfull.trace.eth.dl_type = $('#lf_dl_type').val();
+                if (layerfull.trace.eth.dl_type) {
+                    layerfull.trace.eth.dl_type = parseInt(layerfull.trace.eth.dl_type, 10);
+                }
 
                 layerfull.trace.ip = new Object();
                 layerfull.trace.ip.nw_src = $('#lf_nw_src').val();
