@@ -1,27 +1,6 @@
 from ryu.lib.packet import packet, lldp, ethernet, vlan
 from ryu.ofproto import ether
-
 import prepare
-
-
-def prepare_default_flow(pkt, ev, vlan):
-    """
-        Prepare the LLDP for topology discovery
-        Args:
-            pkt: object SDNTrace
-            ev: event
-            vlan: VLAN used for LLDP match
-        Returns:
-            datapath, the match and actions for the FlowMod
-    """
-    datapath = ev.msg.datapath
-    ofproto = datapath.ofproto
-    parser = datapath.ofproto_parser
-    match = parser.OFPMatch(dl_dst=lldp.LLDP_MAC_NEAREST_BRIDGE,
-                            dl_type=ether.ETH_TYPE_LLDP,
-                            dl_vlan=vlan)
-    actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
-    return datapath, match, actions
 
 
 def prepare_lldp_packet(node, port, vlan_id):
@@ -67,60 +46,6 @@ def prepare_lldp_packet(node, port, vlan_id):
     pkt.serialize()
 
     return pkt
-
-
-def process_port_status(pkt, ev):
-    """
-        Adjust node_list with new ports or removing DELETED ports
-        MGS.Reasons: 0 - port added, 1 - port deleted, 2 - port modified
-        Args:
-            pkt: Object SDNTrace
-            ev: event
-    """
-    msg = ev.msg
-    datapath = msg.datapath
-
-    for node in pkt.node_list:
-        if node.dpid is datapath.id:
-            break
-
-    if msg.desc.port_no > 65530:
-        return
-
-    if msg.reason is 1:
-        if msg.desc.port_no in node.ports:
-            node.ports.remove(msg.desc.port_no)
-            del node.ports_dict[msg.desc.port_no]
-    else:
-        if msg.desc.port_no not in node.ports:
-            node.ports.append(msg.desc.port_no)
-            node.ports_dict[msg.desc.port_no] = msg.desc.name
-
-
-def remove_switch(pkt, ev):
-    """
-        Remove switch from node_list
-        If DISPATCHER is received, it means switch is not connected
-            and should be removed from node_list
-        Args:
-            pkt: SDNTrace object
-            ev: event
-
-    """
-    for link in pkt.links:
-        # Bug with Mininet or Ryu - datapath.id is None
-        # Start and Stop Mininet very fast to see the error
-        # Comment line below first
-        if ev.datapath.id is None:
-            return
-
-        dpid = '%016x' % ev.datapath.id
-        if dpid in link:
-            pkt.links.remove(link)
-    for node in pkt.node_list:
-        if ev.datapath.id is node.dpid:
-            pkt.node_list.remove(node)
-            return
 
 
 def process_packetIn(pkt, ev, links):

@@ -69,7 +69,7 @@ def trace_send_packet_out(obj, node, in_port, r_id, pkt):
 
     obj.send_packet_out(node, in_port, pkt.data)
 
-    print 'Tracing node: %s in_port %s ' % (node.name, in_port)
+    print 'tracing node: %s in_port %s ' % (node.name, in_port)
     while True:
         hub.sleep(1)
         ctr += 1

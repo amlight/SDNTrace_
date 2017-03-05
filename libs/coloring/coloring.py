@@ -1,12 +1,14 @@
+
+
 class Coloring(object):
 
-    def __init__(self, vertices_list):
+    def __init__(self, switches_list):
         """
             Instantiate Cororing class
             Args:
-                vertices_list: list of OFSwitch classes (or node_list)
+                switches_list: list of OFSwitch classes (or node_list)
         """
-        self.vertices_list = vertices_list
+        self.vertices_list = switches_list
         self.colors = ["1", "10", "11", "100", "101", "110", "111"]
 
     def define_colors(self):
@@ -16,13 +18,13 @@ class Coloring(object):
                 switches are ignored. In the end, each node from node_list
                 will have its color defined
             Args:
-                self: Coloring class
+                self: coloring class
         """
-        for i in range(len(self.vertices_list)):
+        for _, vertex in self.vertices_list.items():
             k = 0
             color_list = self.colors[:]
             color = color_list[k]
-            v = self.vertices_list[i]
+            v = vertex
             v.color = color
             for adj in v.adjacencies_list:
                 # print v.name, adj.name, v.color, adj.color, k
@@ -44,7 +46,7 @@ class Coloring(object):
                     else:
                         k -= 1
             v.color = color
-            # print(v.name + ' has color ' + v.color);
+            # print(v.name + ' has color ' + v.color)
         return
 
     def print_colors(self):
@@ -52,7 +54,7 @@ class Coloring(object):
             Print colors in case of troubleshoot needed
         """
         total_colors = []
-        for v in self.vertices_list:
+        for _, v in self.vertices_list.items():
             total_colors.append(v.color)
             print v.name + ' == ' + v.color
 
@@ -65,7 +67,7 @@ class Coloring(object):
             Return a list of dictionaries with nodes and colors
         """
         list_vertex_color = []
-        for v in self.vertices_list:
+        for _, v in self.vertices_list.items():
             list_vertex_color.append({v.name: v.color})
 
         return list_vertex_color

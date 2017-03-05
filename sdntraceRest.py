@@ -2,7 +2,6 @@
 import json
 from webob import Response
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
-from ryu.lib import hub
 import sdntrace
 
 
