@@ -54,53 +54,42 @@ class SDNTraceController(ControllerBase):
         return self._trace(req, **kwargs)
 
     def _switches(self, req, **kwargs):
-        sws = [node.name for node in self.sdntrace_app.node_list]
+        sws = [switch.name for _, switch in self.sdntrace_app.switches.items()]
         body = json.dumps(sws)
         return Response(content_type='application/json', body=body)
 
     def _switch_ports(self, req, **kwargs):
         dpid = kwargs['dpid']
         body = "0"  # in case user requests before switch appears
-        for node in self.sdntrace_app.node_list:
-            if node.name == dpid:
-                ports = node.ports_dict
-                #ports = node.ports
+        for _, switch in self.sdntrace_app.switches.items():
+            if switch.name == dpid:
+                ports = switch.ports
                 body = json.dumps(ports)
         return Response(content_type='application/json', body=body)
 
     def _switch_neighbors(self, req, **kwargs):
         dpid = kwargs['dpid']
-        for node in self.sdntrace_app.node_list:
-            if node.name == dpid:
-                neighbors = [node.name for node in node.adjacencies_list]
+        for _, switch in self.sdntrace_app.switches.items():
+            if switch.name == dpid:
+                neighbors = [neighbor.name for neighbor in switch.adjacencies_list]
         body = json.dumps(neighbors)
         return Response(content_type='application/json', body=body)
 
     def _topology(self, req, **kwargs):
         topology = {}
-        for node in self.sdntrace_app.node_list:
+        for _, switch in self.sdntrace_app.switches.items():
             neighbors = []
-            for neigh in node.adjacencies_list:
+            for neigh in switch.adjacencies_list:
                 neighbors.append(neigh.name)
-            topology[node.name] = neighbors
+            topology[switch.name] = neighbors
         body = json.dumps(topology)
         return Response(content_type='application/json', body=body)
 
     def _colors(self, req, **kwargs):
         colors = {}
-        for node in self.sdntrace_app.node_list:
-            colors[node.name] = {'color': node.color, 'old_color': node.old_color}
+        for _, switch in self.sdntrace_app.switches.items():
+            colors[switch.name] = {'color': switch.color, 'old_color': switch.old_color}
         body = json.dumps(colors)
-        return Response(content_type='application/json', body=body)
-
-    def _listflows(self, req, **kwargs):
-        dpid = kwargs['dpid']
-        flows = []
-        for node in self.sdntrace_app.node_list:
-            if node.name == dpid:
-                flows = node.flows
-                print flows
-        body = json.dumps(flows)
         return Response(content_type='application/json', body=body)
 
     def _trace(self, req, **kwargs):
@@ -126,6 +115,8 @@ class SDNTraceController(ControllerBase):
 
             # Process trace
             trace = nodes_app.process_trace_req(new_entry, request_id)
+            if trace == 0:
+                raise Exception("System Not Ready - Wait a few seconds")
             print 'trace: %s' % trace
             body = json.dumps(trace)
             return Response(content_type='application/json', body=body)

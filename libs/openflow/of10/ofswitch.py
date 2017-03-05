@@ -1,7 +1,8 @@
-from ryu.lib.packet import lldp
 from ryu.ofproto import ether
+from ryu.lib.packet import packet, lldp, ethernet, vlan
 from ryu.ofproto.ofproto_v1_0_parser import OFPPhyPort
 from libs.openflow.of10.port_helper import get_port_speed
+from libs.coloring.auxiliary import simplify_list_links
 
 
 class OFSwitch10(object):
@@ -13,7 +14,6 @@ class OFSwitch10(object):
         self.obj = ev
         self.dpid = ev.msg.datapath_id
         self.ports = self._extract_ports()
-        print(self.ports)
         self.adjacencies_list = []  # list of DPIDs or OFSwitch10?
         self.color = "0"
         self.old_color = "0"
@@ -78,8 +78,7 @@ class OFSwitch10(object):
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
         self.push_flow(datapath, 0, 0, ofproto.OFPFC_ADD, match, actions)
 
-    @staticmethod
-    def send_packet_out(switch, port, data, lldp=False):
+    def send_packet_out(self, port, data, lldp=False):
         """
             Sends PacketOut - Serializes Traces and LLDP packets for topology discovery
             Args:
@@ -88,8 +87,8 @@ class OFSwitch10(object):
                 data: Ethernet frame to be send
                 lldp: used in case of LLDP packets (used by _topology_discovery)
         """
-        parser = switch.obj.msg.datapath.ofproto_parser
-        datapath = switch.obj.msg.datapath
+        parser = self.obj.msg.datapath.ofproto_parser
+        datapath = self.obj.msg.datapath
         ofproto = datapath.ofproto
 
         if lldp:
@@ -155,32 +154,17 @@ class OFSwitch10(object):
             if msg.desc.port_no not in self.ports:
                 self.ports[msg.desc.port_no] = msg.desc.name
 
-    def delete_colored_flows(self, node):
-        """
-            Remove old colored flows from the node
-            TODO: add cookies to the filter
-            Args:
-                node: node to be removed
-        """
-        # Test this method!!!!!
-        datapath = node.obj.msg.datapath
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        op = ofproto.OFPP_CONTROLLER
-        actions = [datapath.ofproto_parser.OFPActionOutput(op)]
-        color = int(node.old_color)
-        if color is 0:
-            # It means no color was previously associated to this node
-            return
-        match = parser.OFPMatch(dl_type=0x8100, dl_vlan_pcp=color)
-        cookie = node.cookie
-        flags = 0
-        flow_prio = self.config_vars['FLOW_PRIORITY']
-        self.push_flow(datapath, cookie, flow_prio, ofproto.OFPFC_DELETE_STRICT,
-                       match, actions, flags)
-        return
 
     def create_adjacencies(self, obj, links):
+        """
+            Once self.links is populated with links obtained from
+            PacketOut/PacketIn, populate per switch adjacencies.
+            Adjacencies are used by the Coloring class to Color the
+            topology
+            Args:
+                obj: SDNTrace class
+                links: SDNTrace.links
+        """
         self.adjacencies_list[:] = []
         for link in links:
             if link[0] == self.name:
@@ -189,3 +173,93 @@ class OFSwitch10(object):
             elif link[1] == self.name:
                 neighbor = obj.get_switch(link[0], True)
                 self.adjacencies_list.append(neighbor)
+
+    def process_packetIn(self, ev, links):
+        """
+            Process PacketIn - core of the SDNTrace
+            PacketIn.action will define the reason: if content is LLDP,
+                it means it is a topology discovery packet
+                if content is not, it COULD be a trace file
+            Args:
+                obj: SDNTrace object
+                ev: event
+                links: list of links known so far
+            Returns:
+                0, 0 if table miss
+                2, pkt if not LLDP
+                1, list of current known links
+        """
+        pktIn_dpid = '%016x' % ev.msg.datapath.id
+
+        # If it is a OFPR_NO_MATCH, it means it is not our packet
+        # Return 0
+        if ev.msg.reason == ev.msg.datapath.ofproto.OFPR_NO_MATCH:
+            return 0, 0
+
+        pkt = packet.Packet(ev.msg.data)
+        pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
+        next_header = pkt_eth.ethertype
+
+        if pkt_eth.ethertype == ether.ETH_TYPE_8021Q:
+            pkt_vlan = pkt.get_protocols(vlan.vlan)[0]
+            next_header = pkt_vlan.ethertype
+
+        if next_header == ether.ETH_TYPE_LLDP:
+
+            # Extract LLDP from PacketIn.data
+            pkt_lldp = pkt.get_protocols(lldp.lldp)[0]
+
+            ChassisID = pkt_lldp.tlvs[0]
+            pktOut_dpid = ChassisID.chassis_id
+            link = pktIn_dpid, pktOut_dpid
+
+            # Keep a single record between switches
+            # It doesn't matter how many connections between them
+            links.append(link)
+            return 1, simplify_list_links(links)
+
+        # If not LLDP, it could be a probe Packet
+        else:
+            return 2, pkt
+
+    def delete_colored_flows(self):
+        """
+            Remove old colored flows from the switch
+        """
+        # TODO: add cookies to the filter
+        # TODO: Test again
+        datapath = self.obj.msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        op = ofproto.OFPP_CONTROLLER
+        actions = [datapath.ofproto_parser.OFPActionOutput(op)]
+        color = self.old_color
+        if color is "0":
+            # It means no color was previously associated to this node
+            return
+        mac_color = "ee:ee:ee:ee:ee:%s" % int(color, 2)
+        match = parser.OFPMatch(dl_src=mac_color)
+        flags = 0
+        flow_prio = self.config_vars['FLOW_PRIORITY']
+        self.push_flow(datapath, self.cookie, flow_prio,
+                         ofproto.OFPFC_DELETE_STRICT,
+                         match, actions, flags)
+
+    def install_color(self, color):
+        """
+            Prepare to send the FlowMod to install colored flows
+            Args:
+                color: dl_src to be used
+        """
+        datapath = self.obj.msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        op = ofproto.OFPP_CONTROLLER
+        actions = [datapath.ofproto_parser.OFPActionOutput(op)]
+
+        mac_color = "ee:ee:ee:ee:ee:%s" % int(color,2)
+        match = parser.OFPMatch(dl_src=mac_color)
+        flow_prio = self.config_vars['FLOW_PRIORITY']
+        self.push_flow(datapath, self.cookie, flow_prio,
+                         ofproto.OFPFC_ADD, match, actions)

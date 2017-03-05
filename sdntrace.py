@@ -1,3 +1,7 @@
+"""
+    This is the core of the SDNTrace
+    Here all OpenFlow events are received and handled
+"""
 from ryu import utils
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -9,11 +13,9 @@ from ryu.ofproto import ofproto_v1_0, ofproto_v1_3
 
 from libs.openflow.of10.ofswitch import OFSwitch10
 from libs.openflow.of13.ofswitch import OFSwitch13
-from libs.coloring import topology
-from libs.coloring import prepare
-from libs.tracing import trace_pkt, tracing
+from libs.tracing import tracing
 from libs.read_config import read_config
-from libs.coloring.topology import prepare_lldp_packet
+from libs.coloring.auxiliary import prepare_lldp_packet, define_colors
 
 
 class SDNTrace(app_manager.RyuApp):
@@ -29,11 +31,10 @@ class SDNTrace(app_manager.RyuApp):
         # Threads
         self.topo_disc = hub.spawn(self._topology_discovery)
         self.push_colors = hub.spawn(self._push_colors)
-        # Trace
+
+        self.config_vars = read_config()  # Read configuration file
+        self.print_ready = False  # Just to print System Ready once
         self.trace_pktIn = []  # list of received PacketIn not LLDP
-        # Read configuration file
-        self.config_vars = read_config()
-        self.print_ready = False # Just to print System Ready once
 
     def _topology_discovery(self):
         """
@@ -44,47 +45,77 @@ class SDNTrace(app_manager.RyuApp):
         """
         vlan = self.config_vars['VLAN_DISCOVERY']
         while True:
+            # Only send PacketOut + LLDP when more than one switch exists
             if len(self.switches) > 1:
                 for _, switch in self.switches.items():
                     for port in switch.ports:
                         pkt = prepare_lldp_packet(switch, port, vlan)
-                        switch.send_packet_out(switch, port, pkt.data, True)
+                        switch.send_packet_out(port, pkt.data, lldp=True)
             hub.sleep(self.config_vars['PACKET_OUT_INTERVAL'])
 
     def _push_colors(self):
         """
-            This routine will run each PUSH_COLORS_INTERVAL interval
+            This routine will run every PUSH_COLORS_INTERVAL interval
             and process the self.links to associate colors to OFSwitches.
-            Flows will be pushed to the switch with the dl_src field set
-            to the defined color outputing to controller
+            Flows will be pushed to switches with the dl_src field set
+            to the defined color outputting to controller
             Args:
                 self
         """
         while True:
             if len(self.switches) > 1:
                 if len(self.links) is not 0:
-                    self.get_topology_data()
+                    self.install_colored_flows()
             hub.sleep(self.config_vars['PUSH_COLORS_INTERVAL'])
 
     def instantiate_switch(self, ev):
-        if ev.msg.version == 1:
+        """
+            Instantiate an OpenFlow 1.0 or 1.3 switch
+            Args:
+                ev: FeatureReply received
+            Returns:
+                OFSwitch1* class
+        """
+        if ev.msg.version == ofproto_v1_0.OFP_VERSION:
             return OFSwitch10(ev, self.config_vars)
-        elif ev.msg.version == 4:
+        elif ev.msg.version == ofproto_v1_3.OFP_VERSION:
             return OFSwitch13(ev, self.config_vars)
         return False
 
-    def debug(self, msg):
+    @staticmethod
+    def debug(msg):
         print("variable: (%s) and type: %s" % (repr(msg), type(msg)))
 
     def add_switch(self, ev):
+        """
+            Add the new switch to the self.switches dict
+            Args:
+                ev: FeatureReply
+        """
         self.switches[ev.msg.datapath_id] = self.instantiate_switch(ev)
 
     def del_switch(self, ev):
+        """
+            In case of DEAD_DISPATCH, remove the switch from
+            the self.switches dict
+            Args:
+                ev: DEAD_DISPATCH event
+        """
         switch = self.get_switch(ev.datapath)
         if switch is not False:
             self.switches.pop(switch.dpid)
 
     def get_switch(self, datapath, by_name=False):
+        """
+            Query the self.switches
+            Args:
+                datapath: datapath object
+                by_name: if search is by datapath id
+
+            Returns:
+                OFSwitch10 or OFSwitch13 objects
+                False if not found
+        """
         for _, switch in self.switches.items():
             if by_name:
                 if switch.name == datapath:
@@ -98,12 +129,12 @@ class SDNTrace(app_manager.RyuApp):
     def switch_features_handler(self, ev):
         """
             FeatureReply - For each new switch that connects, add to the
-            node_list array. This array will be used for sending packetOut
+            switches dictionary. This dict will be used for sending packetOut
             and generate topology and colors.
             When instantiating a switch, clears old colored flows
             and adds the default LLDP flow
             Args:
-                ev: event triggered
+                ev: FeatureReply received
         """
         self.add_switch(ev)
 
@@ -113,7 +144,7 @@ class SDNTrace(app_manager.RyuApp):
             Process OFP_Port_Status
             Add or Remove ports from OFSwitch.ports
             Args:
-                ev: packet captured
+                ev: PortStatus received
         """
         switch = self.get_switch(ev.msg.datapath)
         switch.port_status(ev)
@@ -133,24 +164,26 @@ class SDNTrace(app_manager.RyuApp):
             Process PacketIn
             PacketIN messages are used for topology discovery and traces
             Args:
-                ev: event triggered
+                ev: PacketIn message
         """
-        action, result = topology.process_packetIn(self, ev, self.links)
-        if action is 0:
-            # Table Miss, ignore
+        switch = self.get_switch('%016x' % ev.msg.datapath.id, by_name=True)
+        action, result = switch.process_packetIn(ev, self.links)
+        if action is 0:  # Table Miss, ignore
             pass
-        elif action is 1:
+        elif action is 1:  # LLDP
             self.links = result
             self.create_adjacencies(self.links)
-        elif action is 2:
+        elif action is 2:  # Trace packets
             pkt = tracing.process_probe_packet(ev, result)
             if pkt is not False:
+                # This list is store all PacketIn message received
+                # Make it a signal in the future
                 self.trace_pktIn.append(pkt)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
     def openflow_error(self, ev):
         """
-            Print Error Received. Useful for troubleshooting, specially with Brocade
+            Print Error Received. Useful for troubleshooting
             Args:
                 ev: event
         """
@@ -168,16 +201,13 @@ class SDNTrace(app_manager.RyuApp):
         for _, switch in self.switches.items():
             switch.create_adjacencies(self, links)
 
-    def get_topology_data(self):
+    def install_colored_flows(self):
         """
             First define colors for each node
-            Then push flows
-            Args:
-                self
+            Delete old flows
+            Then push new flows
         """
-        print(self.links)
-        colors = prepare.define_color(self.switches)
-        print(colors)
+        colors = define_colors(self.switches)
         # Compare received colors with self.old_colors
         # If the same, ignore
         if colors is not None:
@@ -194,93 +224,40 @@ class SDNTrace(app_manager.RyuApp):
         # Check all colors in use
         # For each switch:
         # 1 - Delete colored flows
-        # 2 - Check colors of all other switches
-        # 3 - Install all colors from other switches
+        # 2 - For each switch, check colors of neighbors
+        # 3 - Install all neighbors' colors
         for _, switch in self.switches.items():
-            # 1 - Delete colored flows
-            self.delete_colored_flows(switch)
+            # 1 - Delete old colored flows
+            switch.delete_colored_flows()
             # 2 - Check colors of all other switches
             neighbor_colors = []
             for color in self.colors:
                 # Get Dict Key. Just one Key
                 for key in color:
                     if key != switch.name:
-                        neighbor = self.get_switch(key, True)
+                        neighbor = self.get_switch(key, by_name=True)
                         if neighbor in switch.adjacencies_list:
                             neighbor_colors.append(color[key])
             # 3 - Install all colors from other switches
             # in some cases, if two neighbors have the same color, the same flow
             # will be installed twice. It is not an issue.
-            print(neighbor_colors)
             for color in neighbor_colors:
-                self.install_color(switch, color)
+                switch.install_color(color)
             del neighbor_colors
             switch.old_color = switch.color
-
         self.old_colors = self.colors
-
-    def delete_colored_flows(self, switch):
-        """
-            Remove old colored flows from the node
-            Args:
-                switch: node to be removed
-        """
-        # TODO: add cookies to the filter
-        # TODO: Test again
-        datapath = switch.obj.msg.datapath
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        op = ofproto.OFPP_CONTROLLER
-        actions = [datapath.ofproto_parser.OFPActionOutput(op)]
-        color = int(switch.old_color)
-        if color is 0:
-            # It means no color was previously associated to this node
-            return
-        mac_color = "ee:ee:ee:ee:ee:%s" % int(color, 2)
-        match = parser.OFPMatch(dl_src=mac_color)
-        cookie = switch.cookie
-        flags = 0
-        flow_prio = self.config_vars['FLOW_PRIORITY']
-        switch.push_flow(datapath, cookie, flow_prio,
-                         ofproto.OFPFC_DELETE_STRICT,
-                         match, actions, flags)
-
-    def install_color(self, switch, color):
-        """
-            Prepare to send the FlowMod to install the colored flow
-            Args:
-                switch: datapath
-                color: dl_src to be used
-        """
-        datapath = switch.obj.msg.datapath
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-
-        op = ofproto.OFPP_CONTROLLER
-        actions = [datapath.ofproto_parser.OFPActionOutput(op)]
-
-        mac_color = "ee:ee:ee:ee:ee:%s" % int(color,2)
-        match = parser.OFPMatch(dl_src=mac_color)
-        cookie = switch.cookie
-        flow_prio = self.config_vars['FLOW_PRIORITY']
-        switch.push_flow(datapath, cookie, flow_prio, ofproto.OFPFC_ADD,
-                         match, actions)
-
 
     def process_trace_req(self, entries, r_id):
         """
             Receives the REST/PUT to generate a PacketOut
-            template_trace.json is an example
+            docs/template_trace.json is an example
             Args:
                 entries: entries provided by user received from REST interface
                 r_id: request ID created by sdntraceRest and sent back to user
         """
-        # print 'process_trace_req'
         dpid = entries['trace']['switch']['dpid']
-
-        switch, color = trace_pkt.get_node_from_dpid(self.switches, dpid)
-        if not switch or not color:
+        switch = self.get_switch(dpid, by_name=True)
+        if self.print_ready and not switch or not switch.color:
             print 'WARN: System Not Ready Yet'
             return 0
-
-        return tracing.handle_trace(self, entries, switch, color, r_id)
+        return tracing.handle_trace(self, entries, switch, switch.color, r_id)

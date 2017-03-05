@@ -67,7 +67,7 @@ def trace_send_packet_out(obj, node, in_port, r_id, pkt):
     ctr = 0
     rest_result = {}
 
-    obj.send_packet_out(node, in_port, pkt.data)
+    node.send_packet_out(in_port, pkt.data)
 
     print 'tracing node: %s in_port %s ' % (node.name, in_port)
     while True:
@@ -80,18 +80,19 @@ def trace_send_packet_out(obj, node, in_port, r_id, pkt):
                 return {'trace': 'done'}, False
             else:
                 print 'sending PacketOut again'
-                obj.send_packet_out(node, in_port, pkt.data)
+                node.send_packet_out(in_port, pkt.data)
         else:
             # what if we get two answers?
             # get the first, delete other entries with same r_id?
             for pIn in obj.trace_pktIn:
                 # compate pIn.payload.data with r_id
+                # print(r_id, pIn)
                 if r_id == int(pIn[2]):
                     rest_result['trace'] = {'dpid': pIn[0], "port": pIn[1]}
-                    #print 'result',
-                    #print rest_result
+                    # print 'result',
+                    # print rest_result
                     clear_trace_pktIn(obj.trace_pktIn, r_id)
-                    return rest_result, pIn[4]
+                    return rest_result, pIn[-1]
 
 
 def clear_trace_pktIn(trace_pktIn, r_id):
@@ -104,12 +105,13 @@ def check_loop(trace_result):
     i = 0
     last = len(trace_result) - 1
     while i < last:
-        print i, last
+        # print i, last
         if trace_result[i] == trace_result[last]:
             print trace_result[i]['trace'], trace_result[last]['trace']
             return last
         i += 1
     return 0
+
 
 def process_probe_packet(ev, pkt):
     """
@@ -118,20 +120,16 @@ def process_probe_packet(ev, pkt):
             ev: msg
             pkt: data
         Returns:
-            False in case it is not a VLAN or hasn't PCP set
+            False in case it is not a probe packet
             or
             (pktIn_dpid, pktIn_port, pkt[4], pkt, ev)
     """
     pktIn_dpid = '%016x' % ev.msg.datapath.id
     pktIn_port = ev.msg.in_port
-
     pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
-    if pkt_eth.ethertype == 33024:
-        pkt_vlan = pkt.get_protocols(vlan.vlan)[0]
-        if pkt_vlan.pcp is not 0:
-            # TODO: Validate to confirm it is a probe
-            return (pktIn_dpid, pktIn_port, pkt[4], pkt, ev)
-        else:
-            # TODO: Understand possibilities
-            print 'ignore'
+    if pkt_eth.src.find('ee:ee:ee:ee:ee:') == 0:
+        return (pktIn_dpid, pktIn_port, pkt[-1], pkt, ev)
+    else:
+        # TODO: Understand possibilities
+        print 'ignore'
     return False
