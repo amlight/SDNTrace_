@@ -50,12 +50,16 @@ class OFSwitch10(object):
 
         for _i in range(num_ports):
             if _i < ofproto.OFPP_MAX:
-                port = OFPPhyPort.parser(self.obj.msg.buf, offset)
-                if port.port_no < ofproto.OFPP_MAX:
-                    curr = get_port_speed(port.curr)
-                    ports[port.port_no] = {"port_no": port.port_no,
-                                           "name": port.name,
-                                           "speed": curr}
+                # TODO: investigate possible bug on Ryu
+                # if len(self.obj.msg.buf) != offset, Ryu crashes
+                # To try, just start and kill mininet a few times
+                if len(self.obj.msg.buf) != offset:
+                    port = OFPPhyPort.parser(self.obj.msg.buf, offset)
+                    if port.port_no < ofproto.OFPP_MAX:
+                        curr = get_port_speed(port.curr)
+                        ports[port.port_no] = {"port_no": port.port_no,
+                                               "name": port.name,
+                                               "speed": curr}
                 offset += ofproto.OFP_PHY_PORT_SIZE
         return ports
 
