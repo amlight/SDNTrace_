@@ -2,8 +2,8 @@
     This file will be the core of the trace system.
 """
 from ryu.lib import hub
-from ryu.lib.packet import ethernet, vlan, tcp
-
+from ryu.lib.packet import ethernet
+from ryu.ofproto import ofproto_v1_0, ofproto_v1_3
 import trace_pkt
 
 
@@ -113,7 +113,7 @@ def check_loop(trace_result):
     return 0
 
 
-def process_probe_packet(ev, pkt):
+def process_probe_packet(ev, pkt, in_port):
     """
         Used by sdntrace.packet_in_handler
         Args:
@@ -125,7 +125,8 @@ def process_probe_packet(ev, pkt):
             (pktIn_dpid, pktIn_port, pkt[4], pkt, ev)
     """
     pktIn_dpid = '%016x' % ev.msg.datapath.id
-    pktIn_port = ev.msg.in_port
+    pktIn_port = in_port
+
     pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
     if pkt_eth.src.find('ee:ee:ee:ee:ee:') == 0:
         return (pktIn_dpid, pktIn_port, pkt[-1], pkt, ev)

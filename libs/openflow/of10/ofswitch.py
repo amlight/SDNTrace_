@@ -1,8 +1,14 @@
+"""
+    OpenFlow 1.0 switch class
+"""
+
+
 from ryu.ofproto import ether
 from ryu.lib.packet import packet, lldp, ethernet, vlan
+from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto.ofproto_v1_0_parser import OFPPhyPort
-from libs.openflow.of10.port_helper import get_port_speed
 from libs.coloring.auxiliary import simplify_list_links
+from libs.openflow.of10.port_helper import get_port_speed
 
 
 class OFSwitch10(object):
@@ -13,6 +19,7 @@ class OFSwitch10(object):
     def __init__(self, ev, config_vars):
         self.obj = ev
         self.dpid = ev.msg.datapath_id
+        self.version = ofproto_v1_0.OFP_VERSION
         self.ports = self._extract_ports()
         self.adjacencies_list = []  # list of DPIDs or OFSwitch10?
         self.color = "0"
@@ -198,7 +205,7 @@ class OFSwitch10(object):
         # If it is a OFPR_NO_MATCH, it means it is not our packet
         # Return 0
         if ev.msg.reason == ev.msg.datapath.ofproto.OFPR_NO_MATCH:
-            return 0, 0
+            return 0, 0, 0
 
         pkt = packet.Packet(ev.msg.data)
         pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
@@ -220,11 +227,11 @@ class OFSwitch10(object):
             # Keep a single record between switches
             # It doesn't matter how many connections between them
             links.append(link)
-            return 1, simplify_list_links(links)
+            return 1, simplify_list_links(links), 0
 
         # If not LLDP, it could be a probe Packet
         else:
-            return 2, pkt
+            return 2, pkt, ev.msg.in_port
 
     def delete_colored_flows(self):
         """

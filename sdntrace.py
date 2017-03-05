@@ -31,11 +31,13 @@ class SDNTrace(app_manager.RyuApp):
         # Threads
         self.topo_disc = hub.spawn(self._topology_discovery)
         self.push_colors = hub.spawn(self._push_colors)
+        self.monitor_thread = hub.spawn(self._req_port_desc)
 
         self.config_vars = read_config()  # Read configuration file
         self.print_ready = False  # Just to print System Ready once
         self.trace_pktIn = []  # list of received PacketIn not LLDP
 
+    # Auxiliary Threads
     def _topology_discovery(self):
         """
             Keeps looping node_list every PACKET_OUT_INTERVAL seconds
@@ -68,6 +70,21 @@ class SDNTrace(app_manager.RyuApp):
                     self.install_colored_flows()
             hub.sleep(self.config_vars['PUSH_COLORS_INTERVAL'])
 
+    def _req_port_desc(self):
+        """
+            OF1.3 only
+            Because FeatureReply doesn't provide port info
+            we need to use multipart request with option
+            OFPPortDescStatsRequests
+        """
+        while True:
+            if len(self.switches) > 0:
+                for _, switch in self.switches.items():
+                    if switch.version == ofproto_v1_3.OFP_VERSION:
+                        switch.request_port_description()
+            hub.sleep(self.config_vars['COLLECT_INTERVAL'])
+
+    # Main thread
     def instantiate_switch(self, ev):
         """
             Instantiate an OpenFlow 1.0 or 1.3 switch
@@ -158,6 +175,17 @@ class SDNTrace(app_manager.RyuApp):
         """
         self.del_switch(ev)
 
+    @set_ev_cls(ofp_event.EventOFPPortDescStatsReply, MAIN_DISPATCHER)
+    def port_desc_stats_reply_handler(self, ev):
+        """
+            Multipart Port Stats Description
+            Only used for OF1.3
+            Args:
+                ev: FeatureReply received
+        """
+        switch = self.get_switch(ev.msg.datapath)
+        switch.process_port_desc_stats_reply(ev)
+
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
         """
@@ -167,14 +195,14 @@ class SDNTrace(app_manager.RyuApp):
                 ev: PacketIn message
         """
         switch = self.get_switch('%016x' % ev.msg.datapath.id, by_name=True)
-        action, result = switch.process_packetIn(ev, self.links)
+        action, result, in_port = switch.process_packetIn(ev, self.links)
         if action is 0:  # Table Miss, ignore
             pass
         elif action is 1:  # LLDP
             self.links = result
             self.create_adjacencies(self.links)
         elif action is 2:  # Trace packets
-            pkt = tracing.process_probe_packet(ev, result)
+            pkt = tracing.process_probe_packet(ev, result, in_port)
             if pkt is not False:
                 # This list is store all PacketIn message received
                 # Make it a signal in the future

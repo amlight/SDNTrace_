@@ -11,7 +11,7 @@ def read_config():
     configs['MINIMUM_COOKIE_ID'] = 2000000
     configs['PACKET_OUT_INTERVAL'] = 5
     configs['PUSH_COLORS_INTERVAL'] = 10
-    configs['COLLECT_INTERVAL'] = 30
+    configs['COLLECT_INTERVAL'] = 15
     configs['VLAN_DISCOVERY'] = 100
     configs['FLOW_PRIORITY'] = 50000
 

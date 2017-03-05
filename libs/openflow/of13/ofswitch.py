@@ -1,6 +1,14 @@
+"""
+    OpenFlow 1.3 switch class
+"""
+
+
 from ryu.ofproto import ether
 from ryu.lib.packet import packet, lldp, ethernet, vlan
+from ryu.ofproto import ofproto_v1_3
 from libs.coloring.auxiliary import simplify_list_links
+from libs.openflow.of13.port_helper import get_port_speed
+
 
 
 class OFSwitch13(object):
@@ -11,6 +19,7 @@ class OFSwitch13(object):
     def __init__(self, ev, config_vars):
         self.obj = ev
         self.dpid = ev.msg.datapath_id
+        self.version = ofproto_v1_3.OFP_VERSION
         self.ports = dict()
         self.adjacencies_list = []  # list of DPIDs or OFSwitch10?
         self.color = "0"
@@ -49,9 +58,6 @@ class OFSwitch13(object):
         msg = ev.msg
         port_no = msg.desc.port_no
         ofproto = msg.datapath.ofproto
-        print(msg.reason)
-        print(msg.desc)
-
         if msg.desc.port_no > 65530:
             return
 
@@ -60,7 +66,10 @@ class OFSwitch13(object):
                 del self.ports[msg.desc.port_no]
         else:
             if msg.desc.port_no not in self.ports:
-                self.ports[msg.desc.port_no] = msg.desc.name
+                speed = get_port_speed(msg.desc.curr_speed)
+                self.ports[msg.desc.port_no] = {"port_no": msg.desc.port_no,
+                                                "name": msg.desc.name,
+                                                "speed": speed}
 
     @staticmethod
     def push_flow(datapath, cookie, priority, command, match, actions,
@@ -100,6 +109,33 @@ class OFSwitch13(object):
         datapath.send_msg(mod)
         datapath.send_barrier()
 
+    def request_port_description(self):
+        """
+            Sends Multipart Port Description to get
+            list of ports and configurations
+        """
+        datapath = self.obj.msg.datapath
+        parser = datapath.ofproto_parser
+        req = parser.OFPPortDescStatsRequest(datapath, 0)
+        datapath.send_msg(req)
+
+    def process_port_desc_stats_reply(self, ev):
+        """
+            Process Multipart Port Stat Description
+            Works just like _extract_ports from OpenFlow 1.0
+            Args:
+                ev: Multipart Reply message
+        """
+        ofproto = self.obj.msg.datapath.ofproto
+        ports = dict()
+        for port in ev.msg.body:
+            if port.port_no < ofproto.OFPP_MAX:
+                speed = get_port_speed(port.curr_speed)
+                ports[port.port_no] = {"port_no": port.port_no,
+                                       "name": port.name,
+                                       "speed": speed}
+        self.ports = ports
+
     def add_default_flow(self):
         """
             Push our default flow (MAC + LLDP + VLAN)
@@ -128,7 +164,7 @@ class OFSwitch13(object):
         ofproto = datapath.ofproto
 
         if lldp:
-            in_port = ofproto.OFPP_NONE
+            in_port = ofproto.OFPP_CONTROLLER
             out_port = port
         else:
             in_port = port
@@ -140,7 +176,6 @@ class OFSwitch13(object):
         out = parser.OFPPacketOut(datapath=datapath, in_port=in_port,
                                   buffer_id=buffer_id, actions=actions,
                                   data=data)
-        print(out)
         datapath.send_msg(out)
 
     def process_packetIn(self, ev, links):
@@ -162,8 +197,9 @@ class OFSwitch13(object):
 
         # If it is a OFPR_NO_MATCH, it means it is not our packet
         # Return 0
-        if ev.msg.reason == ev.msg.datapath.ofproto.OFPR_NO_MATCH:
-            return 0, 0
+        # Ignored for now:
+        #if ev.msg.reason == ev.msg.datapath.ofproto.OFPR_NO_MATCH:
+        #    return 0, 0, 0
 
         pkt = packet.Packet(ev.msg.data)
         pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
@@ -185,11 +221,11 @@ class OFSwitch13(object):
             # Keep a single record between switches
             # It doesn't matter how many connections between them
             links.append(link)
-            return 1, simplify_list_links(links)
+            return 1, simplify_list_links(links), 0
 
         # If not LLDP, it could be a probe Packet
         else:
-            return 2, pkt
+            return 2, pkt, ev.msg.match['in_port']
 
     def delete_colored_flows(self):
         """
