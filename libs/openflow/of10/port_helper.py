@@ -1,6 +1,8 @@
 
 
 def get_port_speed(curr):
+    if curr == 0:
+        return '0'
     confs = [1, 2, 4, 8, 16, 32, 64]
     return get_phy_speed(parse_bitmask(curr, confs))
 
@@ -15,7 +17,7 @@ def get_phy_speed(speed):
            64: '10GB_FD'}
     try:
         return bws[speed[0]]
-    except KeyError:
+    except KeyError, IndexError:
         return 'OtherSpeed(%s)' % speed[0]
 
 

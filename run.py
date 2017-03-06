@@ -3,8 +3,10 @@ from ryu.cmd import manager
 
 
 def main():
-    #sys.argv.append('sdntraceRest.py')
-    sys.argv.append('sdntrace.py')
+    sys.argv.append('sdntraceRest.py')
+    #sys.argv.append('sdntrace.py')
+    #sys.argv.append('--verbose')
+    #sys.argv.append('--enable-debugger')
     manager.main()
 
 

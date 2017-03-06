@@ -3,11 +3,11 @@
     {
         "switch": {
             "dpid" : "0000000000000001",
-            "in_port": 100
+            "in_port": 1
         },
         "eth" : {
             "dl_vlan": 100,
-            "dl_type": 33024
+            "dl_type": 2048
         }
     }
 }    
