@@ -92,3 +92,6 @@ ENV/
 .ropeproject
 
 .gitignore
+*.xml
+*.iml
+.idea/workspace.xml

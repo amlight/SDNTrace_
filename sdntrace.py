@@ -16,6 +16,7 @@ from libs.openflow.of13.ofswitch import OFSwitch13
 from libs.tracing import tracing
 from libs.read_config import read_config
 from libs.coloring.auxiliary import prepare_lldp_packet, define_colors
+from libs.tracing.tracer import TracePath
 
 
 class SDNTrace(app_manager.RyuApp):
@@ -201,11 +202,10 @@ class SDNTrace(app_manager.RyuApp):
         elif action is 1:  # LLDP
             self.links = result
             self.create_adjacencies(self.links)
-        elif action is 2:  # Trace packets
+        elif action is 2:  # Probe packets
             pkt = tracing.process_probe_packet(ev, result, in_port)
             if pkt is not False:
                 # This list is store all PacketIn message received
-                # Make it a signal in the future
                 self.trace_pktIn.append(pkt)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
@@ -283,9 +283,12 @@ class SDNTrace(app_manager.RyuApp):
                 entries: entries provided by user received from REST interface
                 r_id: request ID created by sdntraceRest and sent back to user
         """
-        dpid = entries['trace']['switch']['dpid']
-        switch = self.get_switch(dpid, by_name=True)
-        if self.print_ready and not switch or not switch.color:
-            print 'WARN: System Not Ready Yet'
+        if self.print_ready:
+            tracer = TracePath(self, r_id, entries)
+            result = tracer.initial_validation()
+            if result:
+                return tracer.tracepath()
+            else:
+                return 'Error: %s' % result
+        else:
             return 0
-        return tracing.handle_trace(self, entries, switch, switch.color, r_id)

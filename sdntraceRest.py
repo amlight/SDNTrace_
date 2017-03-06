@@ -111,17 +111,17 @@ class SDNTraceController(ControllerBase):
             request_id += 1
             result_json = {'request_id': request_id}
             body = json.dumps(result_json)
-            print 'request_id: %s' % body
+            print('request_id: %s' % body)
 
             # Process trace
             trace = nodes_app.process_trace_req(new_entry, request_id)
             if trace == 0:
                 raise Exception("System Not Ready - Wait a few seconds")
-            print 'trace: %s' % trace
+            print('trace: %s' % trace)
             body = json.dumps(trace)
             return Response(content_type='application/json', body=body)
-        except Exception, e:
-            print 'error: %s' % e
+        except Exception as e:
+            print('error: %s' % e)
             body = json.dumps({'error': '%s' % str(e)})
             return Response(content_type='application/json', body=body, status=500)
 

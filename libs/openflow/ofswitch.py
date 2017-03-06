@@ -186,9 +186,11 @@ class OFSwitch(object):
 
         # If it is a OFPR_NO_MATCH, it means it is not our packet
         # Return 0
-        # TODO: Uncomment these next two lines
-        #if ev.msg.reason == ev.msg.datapath.ofproto.OFPR_NO_MATCH:
-        #    return 0, 0, 0
+        # TODO: Fixes next lines - both OF1.0 and OF1.3 need the following
+        # filter. It is not working with OF1.3
+        if ev.msg.version == 1:
+            if ev.msg.reason == ev.msg.datapath.ofproto.OFPR_NO_MATCH:
+                return 0, 0, 0
 
         pkt = packet.Packet(ev.msg.data)
         pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]

@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 
 # AmLight Topology with working flows
 # It is possible to ping from clH2 to miH3
