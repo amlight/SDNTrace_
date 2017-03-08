@@ -44,6 +44,7 @@ class TracePath(object):
         """
             Do the trace path
         """
+        print("Starting Trace Path for ID %s" % self.id)
         entries = self.init_entries
         color = self.init_switch.color
         switch = self.init_switch
@@ -62,7 +63,7 @@ class TracePath(object):
                 self.trace_result.append(result)
                 is_loop = self.check_loop()
                 if is_loop:
-                    self.trace_result.append('loop')
+                    self.trace_result.append({'trace': 'loop'})
                     self.trace_ended = True
                     break
                 # If we got here, that means we need to keep going.
@@ -70,9 +71,13 @@ class TracePath(object):
                 prepare = prepare_next_packet
                 entries, color, switch = prepare(self.obj, entries, result, packet_in)
 
-        # Here we can upload the results to another portal
-        # or just return to the WSGI
-        return self.trace_result
+        self.trace_result.append({'trace': 'completed'})
+        # Add trace result to SDNTrace.traces dictionary
+        self.obj.trace_results_queue[self.id] = (self.trace_result)
+        # Inter-domain operations start here...
+        # Identify next hop
+        # Check contract to see if there any another domain
+        # If so, rewrite trace
 
     def send_trace_probe(self, switch, in_port, probe_pkt):
         """

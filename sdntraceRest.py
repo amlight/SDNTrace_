@@ -53,6 +53,10 @@ class SDNTraceController(ControllerBase):
     def run_trace(self, req, **kwargs):
         return self._trace(req, **kwargs)
 
+    @route('sdntrace', '/sdntrace/trace/{trace_id}', methods=['GET'])
+    def print_colors(self, req, **kwargs):
+        return self._get_trace(req, **kwargs)
+
     def _switches(self, req, **kwargs):
         sws = [switch.name for _, switch in self.sdntrace_app.switches.items()]
         body = json.dumps(sws)
@@ -92,36 +96,43 @@ class SDNTraceController(ControllerBase):
         body = json.dumps(colors)
         return Response(content_type='application/json', body=body)
 
+    def _get_trace(self, req, **kwargs):
+        trace_id = kwargs['trace_id']
+        trace_id = trace_id.encode('ascii')
+        body = "0"
+        print("trace_id received: %r" % trace_id)
+        for trace in self.sdntrace_app.trace_results_queue:
+            if trace == int(trace_id):
+                body = json.dumps(self.sdntrace_app.trace_results_queue[trace])
+        return Response(content_type='application/json', body=body)
+
     def _trace(self, req, **kwargs):
         """
             Trace method.
         """
-        nodes_app = self.sdntrace_app
         try:
             new_entry = eval(req.body)
         except:
-            print "malformed request"
+            print("malformed request")
             body = json.dumps({'error': "malformed request"})
             return Response(content_type='application/json', body=body, status=500)
 
+        nodes_app = self.sdntrace_app
         try:
+            if not nodes_app.print_ready:
+                body = json.dumps("System Not Ready!")
+                return Response(content_type='application/json', body=body)
+
             global request_id
             # First, generate an ID to be send back to user
             # This ID will be used as the data in the packet
             request_id += 1
-            result_json = {'request_id': request_id}
-            body = json.dumps(result_json)
-            print('request_id: %s' % body)
-
-            # Process trace
-            trace = nodes_app.process_trace_req(new_entry, request_id)
-            if trace == 0:
-                raise Exception("System Not Ready - Wait a few seconds")
-            print('trace: %s' % trace)
-            body = json.dumps(trace)
+            body = json.dumps({'request_id': request_id})
+            print(body)
+            nodes_app.process_trace_req(new_entry, request_id)
+            print('past trace_req')
             return Response(content_type='application/json', body=body)
         except Exception as e:
-            print('error: %s' % e)
+            print('SDNTraceRest Error: %s' % e)
             body = json.dumps({'error': '%s' % str(e)})
             return Response(content_type='application/json', body=body, status=500)
-

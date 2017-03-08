@@ -33,6 +33,10 @@ class SDNTrace(app_manager.RyuApp):
         self.topo_disc = hub.spawn(self._topology_discovery)
         self.push_colors = hub.spawn(self._push_colors)
         self.monitor_thread = hub.spawn(self._req_port_desc)
+        # Traces
+        self.trace_results_queue = dict()
+        self.trace_request_queue = dict()
+        self.tracing = hub.spawn(self.run_traces)
 
         self.config_vars = read_config()  # Read configuration file
         self.print_ready = False  # Just to print System Ready once
@@ -284,11 +288,29 @@ class SDNTrace(app_manager.RyuApp):
                 r_id: request ID created by sdntraceRest and sent back to user
         """
         if self.print_ready:
-            tracer = TracePath(self, r_id, entries)
-            result = tracer.initial_validation()
-            if result:
-                return tracer.tracepath()
-            else:
-                return 'Error: %s' % result
+            print('starting trace thread')
+            self.trace_request_queue[r_id] = entries
+            #self.t = hub.spawn(self.spawn_trace(r_id, entries))
+            print "continuing... "
         else:
-            return 0
+            print("error")
+
+    def run_traces(self):
+        while True:
+            if len(self.trace_request_queue) > 0:
+                try:
+                    r_ids = []
+                    for r_id in self.trace_request_queue:
+                        hub.spawn(self.spawn_trace(r_id))
+                        r_ids.append(r_id)
+                    for id in r_ids:
+                        del self.trace_request_queue[id]
+                except Exception as e:
+                    print("Error %s" % e)
+            hub.sleep(0.5)
+
+    def spawn_trace(self, id):
+        print "spawning trace..."
+        tracer = TracePath(self, id, self.trace_request_queue[id])
+        tracer.initial_validation()
+        return tracer.tracepath
