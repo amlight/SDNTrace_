@@ -112,26 +112,26 @@ class SDNTraceController(ControllerBase):
         """
         try:
             new_entry = eval(req.body)
-        except:
-            print("malformed request")
-            body = json.dumps({'error': "malformed request"})
+        except Exception as e:
+            print('SDNTraceRest Error: %s' % e)
+            body = json.dumps({'error': "malformed request %s" % e})
             return Response(content_type='application/json', body=body, status=500)
 
         nodes_app = self.sdntrace_app
         try:
             if not nodes_app.print_ready:
-                body = json.dumps("System Not Ready!")
+                body = json.dumps("SDNTrace: System Not Ready Yet!")
                 return Response(content_type='application/json', body=body)
 
-            global request_id
             # First, generate an ID to be send back to user
             # This ID will be used as the data in the packet
+            global request_id
             request_id += 1
+            # Add to the tracing queue
+            nodes_app.trace_request_queue[request_id] = new_entry
             body = json.dumps({'request_id': request_id})
-            print(body)
-            nodes_app.process_trace_req(new_entry, request_id)
-            print('past trace_req')
             return Response(content_type='application/json', body=body)
+
         except Exception as e:
             print('SDNTraceRest Error: %s' % e)
             body = json.dumps({'error': '%s' % str(e)})

@@ -33,10 +33,10 @@ class SDNTrace(app_manager.RyuApp):
         self.topo_disc = hub.spawn(self._topology_discovery)
         self.push_colors = hub.spawn(self._push_colors)
         self.monitor_thread = hub.spawn(self._req_port_desc)
+        self.tracing = hub.spawn(self._run_traces)
         # Traces
         self.trace_results_queue = dict()
         self.trace_request_queue = dict()
-        self.tracing = hub.spawn(self.run_traces)
 
         self.config_vars = read_config()  # Read configuration file
         self.print_ready = False  # Just to print System Ready once
@@ -88,6 +88,24 @@ class SDNTrace(app_manager.RyuApp):
                     if switch.version == ofproto_v1_3.OFP_VERSION:
                         switch.request_port_description()
             hub.sleep(self.config_vars['COLLECT_INTERVAL'])
+
+    def _run_traces(self):
+        """
+            Reads the trace_request_queue queue for new request
+            Once a request is found, creates a thread to process it
+        """
+        while True:
+            if len(self.trace_request_queue) > 0:
+                try:
+                    r_ids = []
+                    for r_id in self.trace_request_queue:
+                        hub.spawn(self.spawn_trace(r_id))
+                        r_ids.append(r_id)
+                    for rid in r_ids:
+                        del self.trace_request_queue[rid]
+                except Exception as e:
+                    print("Error %s" % e)
+            hub.sleep(0.5)
 
     # Main thread
     def instantiate_switch(self, ev):
@@ -279,38 +297,16 @@ class SDNTrace(app_manager.RyuApp):
             switch.old_color = switch.color
         self.old_colors = self.colors
 
-    def process_trace_req(self, entries, r_id):
+    def spawn_trace(self, rid):
         """
-            Receives the REST/PUT to generate a PacketOut
-            docs/template_trace.json is an example
+            Once a request is found by the _run_traces method,
+            instantiate a TracePath class and runs the tracepath
             Args:
-                entries: entries provided by user received from REST interface
-                r_id: request ID created by sdntraceRest and sent back to user
+                rid: trace request id
+            Returns:
+                tracer.tracepath
         """
-        if self.print_ready:
-            print('starting trace thread')
-            self.trace_request_queue[r_id] = entries
-            #self.t = hub.spawn(self.spawn_trace(r_id, entries))
-            print "continuing... "
-        else:
-            print("error")
-
-    def run_traces(self):
-        while True:
-            if len(self.trace_request_queue) > 0:
-                try:
-                    r_ids = []
-                    for r_id in self.trace_request_queue:
-                        hub.spawn(self.spawn_trace(r_id))
-                        r_ids.append(r_id)
-                    for id in r_ids:
-                        del self.trace_request_queue[id]
-                except Exception as e:
-                    print("Error %s" % e)
-            hub.sleep(0.5)
-
-    def spawn_trace(self, id):
-        print "spawning trace..."
-        tracer = TracePath(self, id, self.trace_request_queue[id])
+        print("Creating thread to trace request id %s..." % rid)
+        tracer = TracePath(self, rid, self.trace_request_queue[rid])
         tracer.initial_validation()
         return tracer.tracepath

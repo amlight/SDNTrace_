@@ -14,7 +14,7 @@ class TracePath(object):
          2) Reading the obj.trace_pktIn queue with PacketIn received
 
         There are a few possibilities of result (not counting errors):
-        - Timeouts ({'trace': 'done'}) - even positive results end w/
+        - Timeouts ({'trace': 'completed'}) - even positive results end w/
             timeouts.
         - Loops ({'trace': 'loop'}) - everytime an entry is seem twice
             in the trace_result queue, we stop
