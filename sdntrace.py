@@ -10,6 +10,7 @@ from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.lib import hub
 from ryu.ofproto import ofproto_v1_0, ofproto_v1_3
+from ryu.topology import event
 
 from libs.openflow.of10.ofswitch import OFSwitch10
 from libs.openflow.of13.ofswitch import OFSwitch13
@@ -25,6 +26,7 @@ class SDNTrace(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(SDNTrace, self).__init__(*args, **kwargs)
+        self.sw_addrs = dict()
         self.switches = dict()
         self.links = []
         self.colors = []
@@ -122,10 +124,6 @@ class SDNTrace(app_manager.RyuApp):
             return OFSwitch13(ev, self.config_vars)
         return False
 
-    @staticmethod
-    def debug(msg):
-        print("variable: (%s) and type: %s" % (repr(msg), type(msg)))
-
     def add_switch(self, ev):
         """
             Add the new switch to the self.switches dict
@@ -149,7 +147,7 @@ class SDNTrace(app_manager.RyuApp):
         """
             Query the self.switches
             Args:
-                datapath: datapath object
+                datapath: datapath object <'str'> 16 digits
                 by_name: if search is by datapath id
 
             Returns:
@@ -164,6 +162,25 @@ class SDNTrace(app_manager.RyuApp):
                 if switch.obj.msg.datapath == datapath:
                     return switch
         return False
+
+    def update_switch_address(self, switch_dp):
+        """"
+            Add tuple (IP, Port) to the OFSwitch class
+        """
+        dpid = '%016x' % switch_dp.id
+        sw = self.get_switch(dpid, True)
+        sw.update_addr(switch_dp.address)
+
+    @set_ev_cls(event.EventSwitchEnter)
+    def get_topology_data(self, ev):
+        """
+            Get switches' IPs and ports. This method is
+            detected after EventOFPSwitchFeatures, so we just
+            update the switch address.
+        Args:
+            ev: EventSwitchEnter
+        """
+        self.update_switch_address(ev.switch.dp)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):

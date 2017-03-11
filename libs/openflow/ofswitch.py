@@ -17,10 +17,12 @@ class OFSwitch(object):
         self.obj = ev
         self.dpid = ev.msg.datapath_id
         self.ports = dict()
-        self.adjacencies_list = []  # list of DPIDs or OFSwitch10?
+        self.adjacencies_list = []  # list of OFSwitch classes
         self.color = "0"
         self.old_color = "0"
         self.name = self.datapath_id
+        self.addr = ('0.0.0.0', 0)
+        self.version = None
         # TODO: Clear colored flows when connected
         # self.delete_colored_flows()
         self.clear_start = False
@@ -37,6 +39,14 @@ class OFSwitch(object):
                 dpid in hex
         """
         return '%016x' % self.dpid
+
+    def update_addr(self, addr):
+        self.addr = addr
+        self.print_connected()
+
+    def print_connected(self):
+        print("Switch %s IP %s:%s OpenFlow version %s has just connected" %
+              (self.datapath_id, self.addr[0], self.addr[1], self.version))
 
     def set_cookie(self):
         self.min_cookie_id = self.config_vars['MINIMUM_COOKIE_ID']
@@ -216,7 +226,7 @@ class OFSwitch(object):
 
         # If not LLDP, it could be a probe Packet
         else:
-            if self.version == 1:
+            if ev.msg.version == 1:
                 return 2, pkt, ev.msg.in_port
             elif ev.msg.version == 4:
                 return 2, pkt, ev.msg.match['in_port']
