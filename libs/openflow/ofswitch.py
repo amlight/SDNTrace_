@@ -1,8 +1,6 @@
 """
     OpenFlow generic switch class
 """
-
-
 from ryu.ofproto import ether
 from ryu.lib.packet import packet, lldp, ethernet, vlan
 from libs.coloring.auxiliary import simplify_list_links
@@ -16,7 +14,7 @@ class OFSwitch(object):
     """
     def __init__(self, ev, config_vars):
         self.obj = ev
-        self.dpid = ev.msg.datapath_id
+        self.dpid = self.obj.msg.datapath_id
         self.ports = dict()
         self.adjacencies_list = []  # list of OFSwitch classes
         self.color = "0"
@@ -54,8 +52,11 @@ class OFSwitch(object):
         self.print_connected()
 
     def print_connected(self):
-        print("Switch %s IP %s:%s OpenFlow version %s has just connected!" %
-              (self.datapath_id, self.addr[0], self.addr[1], self.version_name))
+       print("Switch %s IP %s:%s OpenFlow version %s has just connected!" %
+             (self.datapath_id, self.addr[0], self.addr[1], self.version_name))
+
+    def print_removed(self):
+        print('Switch %s has just disconnected' % self.datapath_id)
 
     def set_cookie(self):
         self.min_cookie_id = self.config_vars['MINIMUM_COOKIE_ID']
@@ -160,7 +161,12 @@ class OFSwitch(object):
             # It means no color was previously associated to this node
             return
         mac_color = "ee:ee:ee:ee:ee:%s" % int(color, 2)
-        match = parser.OFPMatch(eth_src=mac_color)
+
+        if self.version == 1:
+            match = parser.OFPMatch(dl_src=mac_color)
+        elif self.version == 4:
+            match = parser.OFPMatch(eth_src=mac_color)
+
         flags = 0
         flow_prio = self.config_vars['FLOW_PRIORITY']
         self.push_flow(datapath, self.cookie, flow_prio,
