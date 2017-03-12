@@ -53,7 +53,8 @@ class OFSwitch13(OFSwitch):
         """
         match = OFPMatch(eth_dst=lldp.LLDP_MAC_NEAREST_BRIDGE,
                          eth_type=ether.ETH_TYPE_LLDP,
-                         vlan_vid=self.config_vars['VLAN_DISCOVERY'])
+                         vlan_vid=self.config_vars['VLAN_DISCOVERY']
+                          | ofproto_v1_3.OFPVID_PRESENT)
         self.add_default_flow(match)
 
     def install_color(self, color):
@@ -91,6 +92,5 @@ class OFSwitch13(OFSwitch):
                                 cookie=cookie, flags=flags,
                                 command=command, priority=priority,
                                 instructions=inst)
-
         datapath.send_msg(mod)
         datapath.send_barrier()

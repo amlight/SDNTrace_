@@ -8,6 +8,7 @@ from ryu.lib.packet import packet, lldp, ethernet, vlan
 from libs.coloring.auxiliary import simplify_list_links
 from libs.openflow.port_speed import get_speed_name
 
+
 class OFSwitch(object):
     """
         Used to keep track of each node
@@ -29,7 +30,15 @@ class OFSwitch(object):
         # To avoid issues when deleting flows
         self.config_vars = config_vars
         # set cookie
+        self.cookie = None
         self.set_cookie()
+
+    @property
+    def version_name(self):
+        if self.version == 1:
+            return '1.0'
+        elif self.version == 4:
+            return '1.3'
 
     @property
     def datapath_id(self):
@@ -45,8 +54,8 @@ class OFSwitch(object):
         self.print_connected()
 
     def print_connected(self):
-        print("Switch %s IP %s:%s OpenFlow version %s has just connected" %
-              (self.datapath_id, self.addr[0], self.addr[1], self.version))
+        print("Switch %s IP %s:%s OpenFlow version %s has just connected!" %
+              (self.datapath_id, self.addr[0], self.addr[1], self.version_name))
 
     def set_cookie(self):
         self.min_cookie_id = self.config_vars['MINIMUM_COOKIE_ID']
@@ -80,7 +89,7 @@ class OFSwitch(object):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
-        self.push_flow(datapath, 0, 0, ofproto.OFPFC_ADD, match, actions)
+        self.push_flow(datapath, 0, 1, ofproto.OFPFC_ADD, match, actions)
 
     def port_status(self, ev):
         """
@@ -110,7 +119,6 @@ class OFSwitch(object):
             Sends PacketOut - Serializes Traces and LLDP packets for
             topology discovery
             Args:
-                node: node to send PacketOut
                 port: if LLDP: port to send PacketOut out. if
                       Trace: in_port field
                 data: Ethernet frame to be send
@@ -156,8 +164,8 @@ class OFSwitch(object):
         flags = 0
         flow_prio = self.config_vars['FLOW_PRIORITY']
         self.push_flow(datapath, self.cookie, flow_prio,
-                         ofproto.OFPFC_DELETE_STRICT,
-                         match, actions, flags)
+                       ofproto.OFPFC_DELETE_STRICT,
+                       match, actions, flags)
 
     def push_color(self, match):
         """
@@ -168,14 +176,13 @@ class OFSwitch(object):
         """
         datapath = self.obj.msg.datapath
         ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
 
         op = ofproto.OFPP_CONTROLLER
         actions = [datapath.ofproto_parser.OFPActionOutput(op)]
 
         flow_prio = self.config_vars['FLOW_PRIORITY']
         self.push_flow(datapath, self.cookie, flow_prio,
-                         ofproto.OFPFC_ADD, match, actions)
+                       ofproto.OFPFC_ADD, match, actions)
 
     def process_packetIn(self, ev, links):
         """
@@ -196,11 +203,8 @@ class OFSwitch(object):
 
         # If it is a OFPR_NO_MATCH, it means it is not our packet
         # Return 0
-        # TODO: Fixes next lines - both OF1.0 and OF1.3 need the following
-        # filter. It is not working with OF1.3
-        if ev.msg.version == 1:
-            if ev.msg.reason == ev.msg.datapath.ofproto.OFPR_NO_MATCH:
-                return 0, 0, 0
+        if ev.msg.reason == ev.msg.datapath.ofproto.OFPR_NO_MATCH:
+            return 0, 0, 0
 
         pkt = packet.Packet(ev.msg.data)
         pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]

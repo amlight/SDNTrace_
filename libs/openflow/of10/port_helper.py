@@ -17,7 +17,7 @@ def get_phy_speed(speed):
            64: '10GB_FD'}
     try:
         return bws[speed[0]]
-    except KeyError, IndexError:
+    except (KeyError, IndexError):
         return 'OtherSpeed(%s)' % speed[0]
 
 

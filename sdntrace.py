@@ -141,6 +141,7 @@ class SDNTrace(app_manager.RyuApp):
         """
         switch = self.get_switch(ev.datapath)
         if switch is not False:
+            print('Switch %s has just disconnected' % switch.datapath_id)
             self.switches.pop(switch.dpid)
 
     def get_switch(self, datapath, by_name=False):
