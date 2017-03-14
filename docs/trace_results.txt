@@ -26,7 +26,7 @@
     {"trace": {"dpid_b": "eth2"} },
     {"trace": {"dpid_c": "eth1"} },
     {"trace": {"loop": 0} }
-
+  ]
 }
 
 # Inter domain when domainB has privacy issues
@@ -37,6 +37,7 @@
     {"trace": {"dpid_c": "eth1"} },
     {"intertrace": "domainB_name" },
     {"trace": {"done": 0} }
+  ]
 }
 
 # Inter domain when domainB has no privacy issues
@@ -48,6 +49,7 @@
     {"intertrace": "domainB_name" },
     {"trace": {"dpid_d": "eth1"} },
     {"trace": {"done": 0} }
+  ]
 }
 
 # Inter domain with two external domains and no privacy issue
@@ -61,6 +63,7 @@
     {"intertrace": "domainC_name" },
     {"trace": {"dpid_e": "eth1"} },
     {"trace": {"done": 0} }
+  ]
 }
 
 # Inter domain with two external domains and domain B has privacy issues
@@ -73,4 +76,5 @@
     {"intertrace": "domainC_name" },
     {"trace": {"dpid_e": "eth1"} },
     {"trace": {"done": 0} }
+  ]
 }
