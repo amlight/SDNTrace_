@@ -1,0 +1,76 @@
+
+# Possible results - to be deployed
+
+# Intra domain with error
+{
+  "result": [
+    {"starting": {"dpid_a": "eth1/1"} },
+    {"error": "reason" } }
+  ]
+}
+
+# Intra domain with success
+{
+  "result": [
+    {"starting": {"dpid_a": "eth1/1"} },
+    {"trace": {"dpid_b": "eth2"} },
+    {"trace": {"dpid_c": "eth1"} },
+    {"trace": {"done": 0} }
+  ]
+}
+
+# Intra domain with loops
+{
+  "result": [
+    {"starting": {"dpid_a": "eth1/1"} },
+    {"trace": {"dpid_b": "eth2"} },
+    {"trace": {"dpid_c": "eth1"} },
+    {"trace": {"loop": 0} }
+
+}
+
+# Inter domain when domainB has privacy issues
+{
+  "result": [
+    {"starting": {"dpid_a": "eth1/1"} },
+    {"trace": {"dpid_b": "eth2"} },
+    {"trace": {"dpid_c": "eth1"} },
+    {"intertrace": "domainB_name" },
+    {"trace": {"done": 0} }
+}
+
+# Inter domain when domainB has no privacy issues
+{
+  "result": [
+    {"starting": {"dpid_a": "eth1/1"} },
+    {"trace": {"dpid_b": "eth2"} },
+    {"trace": {"dpid_c": "eth1"} },
+    {"intertrace": "domainB_name" },
+    {"trace": {"dpid_d": "eth1"} },
+    {"trace": {"done": 0} }
+}
+
+# Inter domain with two external domains and no privacy issue
+{
+  "result": [
+    {"starting": {"dpid_a": "eth1/1"} },
+    {"trace": {"dpid_b": "eth2"} },
+    {"trace": {"dpid_c": "eth1"} },
+    {"intertrace": "domainB_name" },
+    {"trace": {"dpid_d": "eth1"} },
+    {"intertrace": "domainC_name" },
+    {"trace": {"dpid_e": "eth1"} },
+    {"trace": {"done": 0} }
+}
+
+# Inter domain with two external domains and domain B has privacy issues
+{
+  "result": [
+    {"starting": {"dpid_a": "eth1/1"} },
+    {"trace": {"dpid_b": "eth2"} },
+    {"trace": {"dpid_c": "eth1"} },
+    {"intertrace": "domainB_name" },
+    {"intertrace": "domainC_name" },
+    {"trace": {"dpid_e": "eth1"} },
+    {"trace": {"done": 0} }
+}
