@@ -2,6 +2,7 @@
     This is the core of the SDNTrace
     Here all OpenFlow events are received and handled
 """
+import logging
 from ryu import utils
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -26,23 +27,23 @@ class SDNTrace(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(SDNTrace, self).__init__(*args, **kwargs)
-        self.sw_addrs = dict()
-        self.switches = dict()
-        self.links = []
-        self.colors = []
-        self.old_colors = []
+        self.sw_addrs = dict()  # Dict for switches' IP addresses
+        self.switches = dict()  # Dict for OFSwitch1* classes
+        self.links = []         # List of links detected
+        self.colors = []        # List of current colors in use
+        self.old_colors = []    # List of old colors used
         # Threads
         self.topo_disc = hub.spawn(self._topology_discovery)
         self.push_colors = hub.spawn(self._push_colors)
         self.monitor_thread = hub.spawn(self._req_port_desc)
         self.tracing = hub.spawn(self._run_traces)
         # Traces
-        self.trace_results_queue = dict()
-        self.trace_request_queue = dict()
+        self.trace_results_queue = dict()  # Pending Requested Traces
+        self.trace_request_queue = dict()  # Trace results
 
         self.config_vars = read_config()  # Read configuration file
         self.print_ready = False  # Just to print System Ready once
-        self.trace_pktIn = []  # list of received PacketIn not LLDP
+        self.trace_pktIn = []  # list of received PacketIn non LLDP
 
     # Auxiliary Threads
     def _topology_discovery(self):
@@ -141,6 +142,7 @@ class SDNTrace(app_manager.RyuApp):
         """
         switch = self.get_switch(ev.datapath)
         if switch is not False:
+            switch.print_removed()
             self.switches.pop(switch.dpid)
 
     def get_switch(self, datapath, by_name=False):
@@ -285,7 +287,7 @@ class SDNTrace(app_manager.RyuApp):
                 if self.colors == self.old_colors:
                     if not self.print_ready:
                         self.print_ready = True
-                        print 'System Ready!'
+                        print('SDNTrace Ready!')
                     return
 
         # Check all colors in use

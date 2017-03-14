@@ -8,7 +8,6 @@ def define_colors(switches):
         Get colors from coloring class
         Args:
             switches: dict of switches from SDNTrace class
-            links: SDNTrace.links
         Returns:
             list of colors and hosts to be used
     """
@@ -58,6 +57,7 @@ def prepare_lldp_packet(node, port, vlan_id):
         Args:
             node: destination node
             port: destination port
+            vlan_id: vlan tag to be added to pkt
         Returns:
             an Ethernet+LLDP frame (data field of PacketOut)
     """
@@ -91,7 +91,6 @@ def prepare_lldp_packet(node, port, vlan_id):
     tlvs = (tlv_chassis_id, tlv_port_id, tlv_ttl, tlv_end)
     lldp_pkt = lldp.lldp(tlvs)
     pkt.add_protocol(lldp_pkt)
-
     pkt.serialize()
 
     return pkt

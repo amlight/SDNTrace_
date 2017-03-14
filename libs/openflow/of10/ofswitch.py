@@ -64,7 +64,7 @@ class OFSwitch10(OFSwitch):
             Args:
                 color: dl_src to be used
         """
-        mac_color = "ee:ee:ee:ee:ee:%s" % int(color,2)
+        mac_color = "ee:ee:ee:ee:ee:%s" % int(color, 2)
         self.push_color(OFPMatch(dl_src=mac_color))
 
     @staticmethod
