@@ -1,5 +1,19 @@
 
-# Possible results - to be deployed
+# SDNTrace - REST for Traces
+
+# Submit trace
+
+PUT /sdntrace/trace
+
+# Receives back the trace ID
+
+{"trace_id": ID}
+
+# Get results with
+
+GET /sdntrace/trace/ID
+
+# Possible results:
 
 # Intra domain with error
 {
