@@ -53,7 +53,7 @@ class OFSwitch13(OFSwitch):
         """
         match = OFPMatch(eth_dst=lldp.LLDP_MAC_NEAREST_BRIDGE,
                          eth_type=ether.ETH_TYPE_LLDP,
-                         vlan_vid=self.config_vars['VLAN_DISCOVERY']
+                         vlan_vid=self.config_vars['topo_discovery']['vlan_discovery']
                           | ofproto_v1_3.OFPVID_PRESENT)
         self.add_default_flow(match)
 

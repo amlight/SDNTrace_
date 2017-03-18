@@ -23,5 +23,5 @@ def process_probe_packet(ev, pkt, in_port):
         return (pktIn_dpid, pktIn_port, pkt[-1], pkt, ev)
     else:
         # TODO: Understand possibilities
-        print 'ignore'
+        print('ignore')
     return False

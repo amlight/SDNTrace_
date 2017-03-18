@@ -1,0 +1,6 @@
+define inter-domain contract format
+read contract
+logging instead of printing
+new result REST format
+new Tracer class
+Interdomain support

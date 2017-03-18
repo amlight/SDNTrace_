@@ -1,37 +1,36 @@
+import sys, ConfigParser
 
 
-def read_config():
-    """
-        Read the configuration file (sdntrace.conf) to import
-        global variables. If file does not exist, ignore.
-    """
+dict_type = {'trace': {'push_color_interval': 'int',
+                       'flow_priority': 'int'},
+             'topo_discovery':{'packet_out_interval': 'int',
+                               'vlan_discovery': 'int'},
+             'statistics': {'collect_interval': 'int'},
+             'openflow': {'minimum_cookie_id': 'int'}
+             }
 
-    # These are configurable on the sdntrace.conf file
-    configs = dict()
-    configs['MINIMUM_COOKIE_ID'] = 2000000
-    configs['PACKET_OUT_INTERVAL'] = 5
-    configs['PUSH_COLORS_INTERVAL'] = 10
-    configs['COLLECT_INTERVAL'] = 15
-    configs['VLAN_DISCOVERY'] = 100
-    configs['FLOW_PRIORITY'] = 50000
 
-    params = ['MINIMUM_COOKIE_ID', 'PACKET_OUT_INTERVAL', 'PUSH_COLORS_INTERVAL',
-              'COLLECT_INTERVAL', 'VLAN_DISCOVERY', 'FLOW_PRIORITY']
+def read_config(config_file='./conf/sdntrace.conf'):
+    config = ConfigParser.ConfigParser()
+    config.read(config_file)
+    sections = dict()
+    for section in config.sections():
+        configs = dict()
+        options = config.options(section)
+        for option in options:
+            try:
+                try:
+                    if dict_type[section][option] == 'int':
+                        configs[option] = int(config.get(section, option))
+                    else:
+                        configs[option] = config.get(section, option)
+                except:
+                    configs[option] = config.get(section, option)
+            except:
+                print("%s: Error on section %s param %s!" %
+                      (config_file, section, option))
+                sys.exit(1)
 
-    config_file = "conf/sdntrace.conf"
-    try:
-        f = open(config_file, 'ro')
-    except:
-        return configs
-
-    for line in f:
-        if line[0].isalpha():
-            variable, param = line.split('=')
-            variable = variable.strip(' ')
-            param = param.strip('\n').strip(' ')
-
-            if variable in params:
-                configs[variable] = int(param)
-            else:
-                print('Invalid Option: %s' % variable)
-    return configs
+        sections[section] = configs
+        del configs
+    return sections

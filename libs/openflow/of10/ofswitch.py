@@ -55,7 +55,7 @@ class OFSwitch10(OFSwitch):
         """
         match = OFPMatch(dl_dst=lldp.LLDP_MAC_NEAREST_BRIDGE,
                          dl_type=ether.ETH_TYPE_LLDP,
-                         dl_vlan=self.config_vars['VLAN_DISCOVERY'])
+                         dl_vlan=self.config_vars['topo_discovery']['vlan_discovery'])
         self.add_default_flow(match)
 
     def install_color(self, color):

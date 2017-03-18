@@ -59,7 +59,7 @@ class OFSwitch(object):
         print('Switch %s has just disconnected' % self.datapath_id)
 
     def set_cookie(self):
-        self.min_cookie_id = self.config_vars['MINIMUM_COOKIE_ID']
+        self.min_cookie_id = self.config_vars['openflow']['minimum_cookie_id']
         self.cookie = self.min_cookie_id + 1
         self.min_cookie_id += 1
 
@@ -168,7 +168,7 @@ class OFSwitch(object):
             match = parser.OFPMatch(eth_src=mac_color)
 
         flags = 0
-        flow_prio = self.config_vars['FLOW_PRIORITY']
+        flow_prio = self.config_vars['trace']['flow_priority']
         self.push_flow(datapath, self.cookie, flow_prio,
                        ofproto.OFPFC_DELETE_STRICT,
                        match, actions, flags)
@@ -186,7 +186,7 @@ class OFSwitch(object):
         op = ofproto.OFPP_CONTROLLER
         actions = [datapath.ofproto_parser.OFPActionOutput(op)]
 
-        flow_prio = self.config_vars['FLOW_PRIORITY']
+        flow_prio = self.config_vars['trace']['flow_priority']
         self.push_flow(datapath, self.cookie, flow_prio,
                        ofproto.OFPFC_ADD, match, actions)
 

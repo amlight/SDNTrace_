@@ -31,7 +31,7 @@ class Coloring(object):
                 while color == adj.color:
                     k += 1
                     if k == len(self.colors) or len(color_list) == 0:
-                        print "not possible to find enough colors"
+                        print("not possible to find enough colors")
                         return
                     else:
                         color = color_list[k]
@@ -56,10 +56,10 @@ class Coloring(object):
         total_colors = []
         for _, v in self.vertices_list.items():
             total_colors.append(v.color)
-            print v.name + ' == ' + v.color
+            print(v.name + ' == ' + v.color)
 
         b = set(total_colors)
-        print 'Total number of colors needed: %s ' % (len(b))
+        print('Total number of colors needed: %s ' % (len(b)))
         return
 
     def return_colors(self):
