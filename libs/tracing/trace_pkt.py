@@ -130,8 +130,8 @@ def get_vlan_from_pkt(data):
 
 
 def prepare_next_packet(obj, entries, result, ev):
-    print(result)
-    dpid =  result['trace']['dpid']
+    #print(result)
+    dpid =  result['dpid']
     switch, color = get_node_color_from_dpid(obj.switches, dpid)
 
     entries['trace']['switch']['dpid'] =  dpid
