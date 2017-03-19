@@ -3,8 +3,8 @@
 """
 from ryu.ofproto import ether
 from ryu.lib.packet import packet, lldp, ethernet, vlan
-from libs.coloring.auxiliary import simplify_list_links
 from libs.openflow.port_speed import get_speed_name
+from libs.coloring.links import Link
 
 
 class OFSwitch(object):
@@ -20,6 +20,8 @@ class OFSwitch(object):
         self.color = "0"
         self.old_color = "0"
         self.name = self.datapath_id
+        self.switch_name = None  # mfr_desc
+        self.switch_vendor = None  # mfr_desc
         self.addr = ('0.0.0.0', 0)
         self.version = None
         # TODO: Clear colored flows when connected
@@ -30,6 +32,8 @@ class OFSwitch(object):
         # set cookie
         self.cookie = None
         self.set_cookie()
+        # just to print connected once
+        self.just_connected = 0
 
     @property
     def version_name(self):
@@ -52,16 +56,31 @@ class OFSwitch(object):
         self.print_connected()
 
     def print_connected(self):
-       print("Switch %s IP %s:%s OpenFlow version %s has just connected!" %
-             (self.datapath_id, self.addr[0], self.addr[1], self.version_name))
+        self.just_connected += 1
+        if self.just_connected == 2:
+            print("Switch %s (%s) IP %s:%s OpenFlow version %s has just connected!" %
+                  (self.switch_name, self.datapath_id, self.addr[0],
+                   self.addr[1], self.version_name))
 
     def print_removed(self):
         print('Switch %s has just disconnected' % self.datapath_id)
 
     def set_cookie(self):
-        self.min_cookie_id = self.config_vars['openflow']['minimum_cookie_id']
-        self.cookie = self.min_cookie_id + 1
-        self.min_cookie_id += 1
+        min_cookie_id = self.config_vars['openflow']['minimum_cookie_id']
+        self.cookie = min_cookie_id + 1
+        self.cookie += 1
+
+    def process_description_stats_reply(self, ev):
+        """
+            Process Multipart Description Stat Description
+            Used to collect the switch name - for now
+            Args:
+                ev: Multipart Reply message
+        """
+        body = ev.msg.body
+        self.switch_name = str(body.dp_desc)
+        self.switch_vendor = body.mfr_desc
+        self.print_connected()
 
     def create_adjacencies(self, obj, links):
         """
@@ -74,7 +93,7 @@ class OFSwitch(object):
                 links: SDNTrace.links
         """
         self.adjacencies_list[:] = []
-        for link in links:
+        for link in links.links:
             if link[0] == self.name:
                 neighbor = obj.get_switch(link[1], True)
                 self.adjacencies_list.append(neighbor)
@@ -190,7 +209,8 @@ class OFSwitch(object):
         self.push_flow(datapath, self.cookie, flow_prio,
                        ofproto.OFPFC_ADD, match, actions)
 
-    def process_packetIn(self, ev, links):
+    @staticmethod
+    def process_packetIn(ev, links):
         """
             Process PacketIn - core of the SDNTrace
             PacketIn.action will define the reason: if content is LLDP,
@@ -199,13 +219,17 @@ class OFSwitch(object):
             Args:
                 obj: SDNTrace object
                 ev: event
-                links: list of links known so far
+                links: List Class
             Returns:
                 0, 0 if table miss
                 2, pkt if not LLDP
                 1, list of current known links
         """
         pktIn_dpid = '%016x' % ev.msg.datapath.id
+        if ev.msg.version == 1:
+            pktIn_in_port = ev.msg.in_port
+        elif ev.msg.version == 4:
+            pktIn_in_port = ev.msg.match['in_port']
 
         # If it is a OFPR_NO_MATCH, it means it is not our packet
         # Return 0
@@ -227,12 +251,12 @@ class OFSwitch(object):
 
             ChassisID = pkt_lldp.tlvs[0]
             pktOut_dpid = ChassisID.chassis_id
-            link = pktIn_dpid, pktOut_dpid
 
-            # Keep a single record between switches
-            # It doesn't matter how many connections between them
-            links.append(link)
-            return 1, simplify_list_links(links), 0
+            PortId = pkt_lldp.tlvs[1]
+            pktOut_port = PortId.port_id
+
+            link = Link(pktIn_dpid, pktIn_in_port, pktOut_dpid, pktOut_port)
+            return 1, link, 0
 
         # If not LLDP, it could be a probe Packet
         else:
