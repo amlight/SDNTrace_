@@ -1,6 +1,6 @@
 import sys, argparse
 from ryu.cmd import manager
-from libs.read_config import read_config
+from libs.core.read_config import read_config
 
 
 def cli():
