@@ -15,80 +15,82 @@ GET /sdntrace/trace/ID
 
 # Possible results:
 
+types: ['starting', 'last', 'trace', 'intertrace']
+
 # Intra domain with error
 {
   "result": [
-    {"starting": {"dpid_a": "eth1/1"} },
-    {"error": "reason" } }
+    {"type":"starting", "switch":"dpid_a", "port":"eth1/1"},
+    {"type”:”last”, reason: “error”, msg: “reason” }
   ]
 }
 
 # Intra domain with success
 {
   "result": [
-    {"starting": {"dpid_a": "eth1/1"} },
-    {"trace": {"dpid_b": "eth2"} },
-    {"trace": {"dpid_c": "eth1"} },
-    {"trace": {"done": 0} }
+    {"type":"starting", "switch":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "switch":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "switch":"dpid_c", "port":"eth1"},
+    {"type”:”last”, reason: “done”}
   ]
 }
 
 # Intra domain with loops
 {
   "result": [
-    {"starting": {"dpid_a": "eth1/1"} },
-    {"trace": {"dpid_b": "eth2"} },
-    {"trace": {"dpid_c": "eth1"} },
-    {"trace": {"loop": 0} }
+    {"type":"starting", "switch":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "switch":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "switch":"dpid_c", "port":"eth1"},
+    {"type”:”last”, reason: “loop”}
   ]
 }
 
 # Inter domain when domainB has privacy issues
 {
   "result": [
-    {"starting": {"dpid_a": "eth1/1"} },
-    {"trace": {"dpid_b": "eth2"} },
-    {"trace": {"dpid_c": "eth1"} },
-    {"intertrace": "domainB_name" },
-    {"trace": {"done": 0} }
+    {"type":"starting", "switch":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "switch":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "switch":"dpid_c", "port":"eth1"},
+    {"type":"intertrace", "domain":"domainB_name"}
+    {"type”:”last”, reason: “done”}
   ]
 }
 
 # Inter domain when domainB has no privacy issues
 {
   "result": [
-    {"starting": {"dpid_a": "eth1/1"} },
-    {"trace": {"dpid_b": "eth2"} },
-    {"trace": {"dpid_c": "eth1"} },
-    {"intertrace": "domainB_name" },
-    {"trace": {"dpid_d": "eth1"} },
-    {"trace": {"done": 0} }
+    {"type":"starting", "switch":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "switch":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "switch":"dpid_c", "port":"eth1"},
+    {"type":"intertrace", "domain":"domainB_name"},
+    {"type":"trace",    "switch":"dpid_c", "port":"eth1"},
+    {"type”:”last”, reason: “done”}
   ]
 }
 
 # Inter domain with two external domains and no privacy issue
 {
   "result": [
-    {"starting": {"dpid_a": "eth1/1"} },
-    {"trace": {"dpid_b": "eth2"} },
-    {"trace": {"dpid_c": "eth1"} },
-    {"intertrace": "domainB_name" },
-    {"trace": {"dpid_d": "eth1"} },
-    {"intertrace": "domainC_name" },
-    {"trace": {"dpid_e": "eth1"} },
-    {"trace": {"done": 0} }
+    {"type":"starting", "switch":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "switch":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "switch":"dpid_c", "port":"eth1"},
+    {"type":"intertrace", "domain":"domainB_name"},
+    {"type":"trace",    "switch":"dpid_h", "port":"eth1"},
+    {"type":"intertrace", "domain":"domainC_name"},
+    {"type":"trace",    "switch":"dpid_j", "port":"eth1"},
+    {"type”:”last”, reason: “done”}
   ]
 }
 
 # Inter domain with two external domains and domain B has privacy issues
 {
   "result": [
-    {"starting": {"dpid_a": "eth1/1"} },
-    {"trace": {"dpid_b": "eth2"} },
-    {"trace": {"dpid_c": "eth1"} },
-    {"intertrace": "domainB_name" },
-    {"intertrace": "domainC_name" },
-    {"trace": {"dpid_e": "eth1"} },
-    {"trace": {"done": 0} }
+    {"type":"starting", "switch":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "switch":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "switch":"dpid_c", "port":"eth1"},
+    {"type":"intertrace", "domain":"domainB_name"},
+    {"type":"intertrace", "domain":"domainC_name"},
+    {"type":"trace",    "switch":"dpid_j", "port":"eth1"},
+    {"type”:”last”, reason: “done”}
   ]
 }
