@@ -20,7 +20,7 @@ types: ['starting', 'last', 'trace', 'intertrace']
 # Intra domain with error
 {
   "result": [
-    {"type":"starting", "switch":"dpid_a", "port":"eth1/1"},
+    {"type":"starting", "dpid":"dpid_a", "port":"eth1/1"},
     {"type”:”last”, reason: “error”, msg: “reason” }
   ]
 }
@@ -28,9 +28,9 @@ types: ['starting', 'last', 'trace', 'intertrace']
 # Intra domain with success
 {
   "result": [
-    {"type":"starting", "switch":"dpid_a", "port":"eth1/1"},
-    {"type":"trace",    "switch":"dpid_b", "port":"eth2"},
-    {"type":"trace",    "switch":"dpid_c", "port":"eth1"},
+    {"type":"starting", "dpid":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "dpid":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "dpid":"dpid_c", "port":"eth1"},
     {"type”:”last”, reason: “done”}
   ]
 }
@@ -38,9 +38,9 @@ types: ['starting', 'last', 'trace', 'intertrace']
 # Intra domain with loops
 {
   "result": [
-    {"type":"starting", "switch":"dpid_a", "port":"eth1/1"},
-    {"type":"trace",    "switch":"dpid_b", "port":"eth2"},
-    {"type":"trace",    "switch":"dpid_c", "port":"eth1"},
+    {"type":"starting", "dpid":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "dpid":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "dpid":"dpid_c", "port":"eth1"},
     {"type”:”last”, reason: “loop”}
   ]
 }
@@ -48,9 +48,9 @@ types: ['starting', 'last', 'trace', 'intertrace']
 # Inter domain when domainB has privacy issues
 {
   "result": [
-    {"type":"starting", "switch":"dpid_a", "port":"eth1/1"},
-    {"type":"trace",    "switch":"dpid_b", "port":"eth2"},
-    {"type":"trace",    "switch":"dpid_c", "port":"eth1"},
+    {"type":"starting", "dpid":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "dpid":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "dpid":"dpid_c", "port":"eth1"},
     {"type":"intertrace", "domain":"domainB_name"}
     {"type”:”last”, reason: “done”}
   ]
@@ -59,11 +59,11 @@ types: ['starting', 'last', 'trace', 'intertrace']
 # Inter domain when domainB has no privacy issues
 {
   "result": [
-    {"type":"starting", "switch":"dpid_a", "port":"eth1/1"},
-    {"type":"trace",    "switch":"dpid_b", "port":"eth2"},
-    {"type":"trace",    "switch":"dpid_c", "port":"eth1"},
+    {"type":"starting", "dpid":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "dpid":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "dpid":"dpid_c", "port":"eth1"},
     {"type":"intertrace", "domain":"domainB_name"},
-    {"type":"trace",    "switch":"dpid_c", "port":"eth1"},
+    {"type":"trace",    "dpid":"dpid_c", "port":"eth1"},
     {"type”:”last”, reason: “done”}
   ]
 }
@@ -71,13 +71,13 @@ types: ['starting', 'last', 'trace', 'intertrace']
 # Inter domain with two external domains and no privacy issue
 {
   "result": [
-    {"type":"starting", "switch":"dpid_a", "port":"eth1/1"},
-    {"type":"trace",    "switch":"dpid_b", "port":"eth2"},
-    {"type":"trace",    "switch":"dpid_c", "port":"eth1"},
+    {"type":"starting", "dpid":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "dpid":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "dpid":"dpid_c", "port":"eth1"},
     {"type":"intertrace", "domain":"domainB_name"},
-    {"type":"trace",    "switch":"dpid_h", "port":"eth1"},
+    {"type":"trace",    "dpid":"dpid_h", "port":"eth1"},
     {"type":"intertrace", "domain":"domainC_name"},
-    {"type":"trace",    "switch":"dpid_j", "port":"eth1"},
+    {"type":"trace",    "dpid":"dpid_j", "port":"eth1"},
     {"type”:”last”, reason: “done”}
   ]
 }
@@ -85,12 +85,12 @@ types: ['starting', 'last', 'trace', 'intertrace']
 # Inter domain with two external domains and domain B has privacy issues
 {
   "result": [
-    {"type":"starting", "switch":"dpid_a", "port":"eth1/1"},
-    {"type":"trace",    "switch":"dpid_b", "port":"eth2"},
-    {"type":"trace",    "switch":"dpid_c", "port":"eth1"},
+    {"type":"starting", "dpid":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "dpid":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "dpid":"dpid_c", "port":"eth1"},
     {"type":"intertrace", "domain":"domainB_name"},
     {"type":"intertrace", "domain":"domainC_name"},
-    {"type":"trace",    "switch":"dpid_j", "port":"eth1"},
+    {"type":"trace",    "dpid":"dpid_j", "port":"eth1"},
     {"type”:”last”, reason: “done”}
   ]
 }
