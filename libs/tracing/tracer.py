@@ -112,7 +112,6 @@ class TracePath(object):
             in_port, probe_pkt = generate_trace_pkt(entries, color, self.id)
             # Send Packet out and try to get a PacketIn
             result, packet_in = self.send_trace_probe(switch, in_port, probe_pkt)
-            # Possible results
             # If timeout
             if result == 'timeout':
                 # Add last trace step
@@ -136,6 +135,7 @@ class TracePath(object):
         # Identify next hop to confirm if inter-domain
         # If so, get the contract file
         is_inter_domain = False
+
         if is_inter_domain:
             self.trace_interdomain()
 
