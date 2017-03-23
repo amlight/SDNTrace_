@@ -1,9 +1,9 @@
 """
     Tracer main class
 """
-from datetime import datetime
 from ryu.lib import hub
 from libs.tracing.trace_pkt import generate_trace_pkt, prepare_next_packet
+from libs.core.rest.tracer import FormatRest
 
 
 class TracePath(object):
@@ -32,7 +32,7 @@ class TracePath(object):
         self.trace_result = []
         self.trace_ended = False
         self.init_switch = None
-        self.start_time = self.current_time()
+        self.rest = FormatRest(self.obj)
 
     def initial_validation(self):
         dpid = self.init_entries['trace']['switch']['dpid']
@@ -40,48 +40,6 @@ class TracePath(object):
         if not isinstance(self.init_switch, bool):
             return True
         return 'Error: DPID provided was not found'
-
-    def current_time(self):
-        return datetime.now()
-
-    def get_time(self, to_str=True):
-        time_diff = self.current_time() - self.start_time
-        return str(time_diff) if to_str else time_diff
-
-    def add_trace_step(self, trace_type, reason=None, dpid=None, port=None, msg=None):
-        """
-            Used to define the new REST interface. Use docs/trace_results.txt for
-                examples. Only this method should write to self.trace_result
-            Args:
-                trace_type: type of trace
-                reason: reason in case trace_type == last
-                dpid: switch's dpid
-                port: switch's OpenFlow port_no
-                msg: message in case of reason == error
-        """
-        step = dict()
-        step['type'] = trace_type
-        # Get port name instead of port_no
-        if dpid:
-            new_switch = self.obj.get_switch(dpid, by_name=True)
-            port_name = new_switch.ports[port]['name']
-
-        if trace_type == 'starting':
-            step['dpid'] = new_switch.name
-            step['port'] = port_name
-            step['time'] = str(self.start_time)
-        elif trace_type == 'trace':
-            step['dpid'] = new_switch.name
-            step['port'] = port_name
-            step['time'] = self.get_time()
-        elif trace_type == 'last':
-            step['reason'] = reason
-            step['msg'] = msg
-            step['time'] = self.get_time()
-        elif trace_type == 'intertrace':
-            pass
-        # Add to trace_result array
-        self.trace_result.append(step)
 
     def tracepath(self):
         """
@@ -92,8 +50,9 @@ class TracePath(object):
         color = self.init_switch.color
         switch = self.init_switch
         # Add initial trace step
-        self.add_trace_step(trace_type='starting', dpid=switch.datapath_id,
-                            port=entries['trace']['switch']['in_port'])
+        self.rest.add_trace_step(self.trace_result, trace_type='starting',
+                                 dpid=switch.datapath_id,
+                                 port=entries['trace']['switch']['in_port'])
 
         # A loop waiting for trace_ended. It changes to True when reaches timeout
         while not self.trace_ended:
@@ -115,16 +74,18 @@ class TracePath(object):
             # If timeout
             if result == 'timeout':
                 # Add last trace step
-                self.add_trace_step(trace_type='last', reason='done')
+                self.rest.add_trace_step(self.trace_result, trace_type='last', reason='done')
                 print("Trace Completed!")
                 self.trace_ended = True
             # If not timeout
             else:
-                self.add_trace_step(trace_type='trace', dpid=result['dpid'], port=result['port'])
+                self.rest.add_trace_step(self.trace_result, trace_type='trace',
+                                         dpid=result['dpid'], port=result['port'])
                 is_loop = self.check_loop()
                 if is_loop:
                     # If loop, add the loop trace step
-                    self.add_trace_step(trace_type='last', reason='loop')
+                    self.rest.add_trace_step(self.trace_result, trace_type='last',
+                                             reason='loop')
                     self.trace_ended = True
                     break
                 # If we got here, that means we need to keep going.
@@ -142,8 +103,8 @@ class TracePath(object):
         # Add final result to trace_results_queue
         self.obj.trace_results_queue[self.id] = {"request_id": self.id,
                                                  "result": self.trace_result,
-                                                 "start_time": str(self.start_time),
-                                                 "total_time": self.get_time()}
+                                                 "start_time": str(self.rest.start_time),
+                                                 "total_time": self.rest.get_time()}
 
     def send_trace_probe(self, switch, in_port, probe_pkt):
         """

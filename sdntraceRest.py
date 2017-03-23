@@ -3,6 +3,7 @@ import json
 from webob import Response
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 import sdntrace
+from libs.core.rest.queries import FormatRest
 
 
 sdntrace_instance_name = 'sdntrace_api_app'
@@ -24,6 +25,7 @@ class SDNTraceController(ControllerBase):
     def __init__(self, req, link, data, **config):
         super(SDNTraceController, self).__init__(req, link, data, **config)
         self.sdntrace_app = data[sdntrace_instance_name]
+        self.sdntrace_rest = FormatRest(self.sdntrace_app.switches)
 
     @route('sdntrace', '/sdntrace/switches', methods=['GET'])
     def print_switches(self, req, **kwargs):
@@ -68,26 +70,12 @@ class SDNTraceController(ControllerBase):
 
     def _switch_info(self, req, **kwargs):
         dpid = kwargs['dpid']
-        body = "0"  # in case user requests before switch appears
-        for _, switch in self.sdntrace_app.switches.items():
-            if switch.name == dpid:
-                info = {'Switch Name': switch.switch_name,
-                        'Switch Vendor': switch.switch_vendor,
-                        'Datapath ID': switch.datapath_id,
-                        'Switch Color': switch.color,
-                        'OpenFlow Version': switch.version_name,
-                        'IP Address': switch.addr[0],
-                        'TCP Port': switch.addr[1]}
-                body = json.dumps(info)
+        body = self.sdntrace_rest.switch_info(dpid)
         return Response(content_type='application/json', body=body)
 
     def _switch_ports(self, req, **kwargs):
         dpid = kwargs['dpid']
-        body = "0"  # in case user requests before switch appears
-        for _, switch in self.sdntrace_app.switches.items():
-            if switch.name == dpid:
-                ports = switch.ports
-                body = json.dumps(ports)
+        body = self.sdntrace_rest.switch_ports(dpid)
         return Response(content_type='application/json', body=body)
 
     def _switch_neighbors(self, req, **kwargs):
