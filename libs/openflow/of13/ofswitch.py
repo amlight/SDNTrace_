@@ -19,15 +19,20 @@ class OFSwitch13(OFSwitch):
         OFSwitch.__init__(self, ev, config_vars)
         self.version = ofproto_v1_3.OFP_VERSION
         self.prepare_default_flow()
+        self.request_initial_description()
 
-    def request_port_description(self):
+    def request_initial_description(self):
         """
             Sends Multipart Port Description to get
             list of ports and configurations
         """
         datapath = self.obj.msg.datapath
         parser = datapath.ofproto_parser
+        # Port Request
         req = parser.OFPPortDescStatsRequest(datapath, 0)
+        datapath.send_msg(req)
+        # Description Request
+        req = parser.OFPDescStatsRequest(datapath, 0)
         datapath.send_msg(req)
 
     def process_port_desc_stats_reply(self, ev):
@@ -53,7 +58,8 @@ class OFSwitch13(OFSwitch):
         """
         match = OFPMatch(eth_dst=lldp.LLDP_MAC_NEAREST_BRIDGE,
                          eth_type=ether.ETH_TYPE_LLDP,
-                         vlan_vid=self.config_vars['VLAN_DISCOVERY'])
+                         vlan_vid=self.config_vars['topo_discovery']['vlan_discovery'] |
+                         ofproto_v1_3.OFPVID_PRESENT)
         self.add_default_flow(match)
 
     def install_color(self, color):
@@ -91,6 +97,5 @@ class OFSwitch13(OFSwitch):
                                 cookie=cookie, flags=flags,
                                 command=command, priority=priority,
                                 instructions=inst)
-
         datapath.send_msg(mod)
         datapath.send_barrier()

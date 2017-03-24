@@ -1,0 +1,96 @@
+
+# SDNTrace - REST for Traces
+
+# Submit trace
+
+PUT /sdntrace/trace
+
+# Receives back the trace ID
+
+{"trace_id": ID}
+
+# Get results with
+
+GET /sdntrace/trace/ID
+
+# Possible results:
+
+types: ['starting', 'last', 'trace', 'intertrace']
+
+# Intra domain with error
+{
+  "result": [
+    {"type":"starting", "dpid":"dpid_a", "port":"eth1/1"},
+    {"type”:”last”, reason: “error”, msg: “reason” }
+  ]
+}
+
+# Intra domain with success
+{
+  "result": [
+    {"type":"starting", "dpid":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "dpid":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "dpid":"dpid_c", "port":"eth1"},
+    {"type”:”last”, reason: “done”}
+  ]
+}
+
+# Intra domain with loops
+{
+  "result": [
+    {"type":"starting", "dpid":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "dpid":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "dpid":"dpid_c", "port":"eth1"},
+    {"type”:”last”, reason: “loop”}
+  ]
+}
+
+# Inter domain when domainB has privacy issues
+{
+  "result": [
+    {"type":"starting", "dpid":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "dpid":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "dpid":"dpid_c", "port":"eth1"},
+    {"type":"intertrace", "domain":"domainB_name"}
+    {"type”:”last”, reason: “done”}
+  ]
+}
+
+# Inter domain when domainB has no privacy issues
+{
+  "result": [
+    {"type":"starting", "dpid":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "dpid":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "dpid":"dpid_c", "port":"eth1"},
+    {"type":"intertrace", "domain":"domainB_name"},
+    {"type":"trace",    "dpid":"dpid_c", "port":"eth1"},
+    {"type”:”last”, reason: “done”}
+  ]
+}
+
+# Inter domain with two external domains and no privacy issue
+{
+  "result": [
+    {"type":"starting", "dpid":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "dpid":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "dpid":"dpid_c", "port":"eth1"},
+    {"type":"intertrace", "domain":"domainB_name"},
+    {"type":"trace",    "dpid":"dpid_h", "port":"eth1"},
+    {"type":"intertrace", "domain":"domainC_name"},
+    {"type":"trace",    "dpid":"dpid_j", "port":"eth1"},
+    {"type”:”last”, reason: “done”}
+  ]
+}
+
+# Inter domain with two external domains and domain B has privacy issues
+{
+  "result": [
+    {"type":"starting", "dpid":"dpid_a", "port":"eth1/1"},
+    {"type":"trace",    "dpid":"dpid_b", "port":"eth2"},
+    {"type":"trace",    "dpid":"dpid_c", "port":"eth1"},
+    {"type":"intertrace", "domain":"domainB_name"},
+    {"type":"intertrace", "domain":"domainC_name"},
+    {"type":"trace",    "dpid":"dpid_j", "port":"eth1"},
+    {"type”:”last”, reason: “done”}
+  ]
+}

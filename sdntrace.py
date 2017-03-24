@@ -2,6 +2,7 @@
     This is the core of the SDNTrace
     Here all OpenFlow events are received and handled
 """
+from ryu import cfg
 from ryu import utils
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -10,13 +11,22 @@ from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.lib import hub
 from ryu.ofproto import ofproto_v1_0, ofproto_v1_3
+from ryu.topology import event
 
+from libs.coloring.auxiliary import prepare_lldp_packet, define_colors
+from libs.core.read_config import read_config
 from libs.openflow.of10.ofswitch import OFSwitch10
 from libs.openflow.of13.ofswitch import OFSwitch13
 from libs.tracing import tracing
-from libs.read_config import read_config
-from libs.coloring.auxiliary import prepare_lldp_packet, define_colors
 from libs.tracing.tracer import TracePath
+from libs.coloring.links import Links
+
+
+# Used to get the configuration file
+# entry trace_config in the config file provided
+# by the user
+CONF = cfg.CONF
+CONF.register_opts([cfg.StrOpt('trace_config')])
 
 
 class SDNTrace(app_manager.RyuApp):
@@ -25,22 +35,23 @@ class SDNTrace(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(SDNTrace, self).__init__(*args, **kwargs)
-        self.switches = dict()
-        self.links = []
-        self.colors = []
-        self.old_colors = []
+        self.sw_addrs = dict()  # Dict for switches' IP addresses
+        self.switches = dict()  # Dict for OFSwitch1* classes
+        self.links = Links()     # List of links detected
+        self.colors = []        # List of current colors in use
+        self.old_colors = []    # List of old colors used
         # Threads
         self.topo_disc = hub.spawn(self._topology_discovery)
         self.push_colors = hub.spawn(self._push_colors)
-        self.monitor_thread = hub.spawn(self._req_port_desc)
+        # self.stat_thread = hub.spawn(self._req_port_desc)
         self.tracing = hub.spawn(self._run_traces)
         # Traces
-        self.trace_results_queue = dict()
-        self.trace_request_queue = dict()
+        self.trace_results_queue = dict()  # Pending Requested Traces
+        self.trace_request_queue = dict()  # Trace results
 
-        self.config_vars = read_config()  # Read configuration file
+        self.config_vars = read_config(CONF.trace_config)  # Read configuration
         self.print_ready = False  # Just to print System Ready once
-        self.trace_pktIn = []  # list of received PacketIn not LLDP
+        self.trace_pktIn = []  # list of received PacketIn non LLDP
 
     # Auxiliary Threads
     def _topology_discovery(self):
@@ -50,7 +61,7 @@ class SDNTrace(app_manager.RyuApp):
             Args:
                 self
         """
-        vlan = self.config_vars['VLAN_DISCOVERY']
+        vlan = self.config_vars['topo_discovery']['vlan_discovery']
         while True:
             # Only send PacketOut + LLDP when more than one switch exists
             if len(self.switches) > 1:
@@ -58,7 +69,7 @@ class SDNTrace(app_manager.RyuApp):
                     for port in switch.ports:
                         pkt = prepare_lldp_packet(switch, port, vlan)
                         switch.send_packet_out(port, pkt.data, lldp=True)
-            hub.sleep(self.config_vars['PACKET_OUT_INTERVAL'])
+            hub.sleep(self.config_vars['topo_discovery']['packet_out_interval'])
 
     def _push_colors(self):
         """
@@ -73,21 +84,21 @@ class SDNTrace(app_manager.RyuApp):
             if len(self.switches) > 1:
                 if len(self.links) is not 0:
                     self.install_colored_flows()
-            hub.sleep(self.config_vars['PUSH_COLORS_INTERVAL'])
+            hub.sleep(self.config_vars['trace']['push_color_interval'])
 
-    def _req_port_desc(self):
-        """
-            OF1.3 only
-            Because FeatureReply doesn't provide port info
-            we need to use multipart request with option
-            OFPPortDescStatsRequests
-        """
-        while True:
-            if len(self.switches) > 0:
-                for _, switch in self.switches.items():
-                    if switch.version == ofproto_v1_3.OFP_VERSION:
-                        switch.request_port_description()
-            hub.sleep(self.config_vars['COLLECT_INTERVAL'])
+    # def _req_port_desc(self):
+    #     """
+    #         OF1.3 only
+    #         Because FeatureReply doesn't provide port info
+    #         we need to use multipart request with option
+    #         OFPPortDescStatsRequests
+    #     """
+    #     while True:
+    #         if len(self.switches) > 0:
+    #             for _, switch in self.switches.items():
+    #                 if switch.version == ofproto_v1_3.OFP_VERSION:
+    #                     switch.request_port_description()
+    #         hub.sleep(self.config_vars['statistics']['collect_interval'])
 
     def _run_traces(self):
         """
@@ -122,10 +133,6 @@ class SDNTrace(app_manager.RyuApp):
             return OFSwitch13(ev, self.config_vars)
         return False
 
-    @staticmethod
-    def debug(msg):
-        print("variable: (%s) and type: %s" % (repr(msg), type(msg)))
-
     def add_switch(self, ev):
         """
             Add the new switch to the self.switches dict
@@ -143,13 +150,15 @@ class SDNTrace(app_manager.RyuApp):
         """
         switch = self.get_switch(ev.datapath)
         if switch is not False:
+            self.links.remove_switch(switch.name)
+            switch.print_removed()
             self.switches.pop(switch.dpid)
 
     def get_switch(self, datapath, by_name=False):
         """
             Query the self.switches
             Args:
-                datapath: datapath object
+                datapath: datapath object <'str'> 16 digits
                 by_name: if search is by datapath id
 
             Returns:
@@ -164,6 +173,25 @@ class SDNTrace(app_manager.RyuApp):
                 if switch.obj.msg.datapath == datapath:
                     return switch
         return False
+
+    def update_switch_address(self, switch_dp):
+        """"
+            Add tuple (IP, Port) to the OFSwitch class
+        """
+        dpid = '%016x' % switch_dp.id
+        sw = self.get_switch(dpid, True)
+        sw.update_addr(switch_dp.address)
+
+    @set_ev_cls(event.EventSwitchEnter)
+    def get_topology_data(self, ev):
+        """
+            Get switches' IPs and ports. This method is
+            detected after EventOFPSwitchFeatures, so we just
+            update the switch address.
+        Args:
+            ev: EventSwitchEnter
+        """
+        self.update_switch_address(ev.switch.dp)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -209,6 +237,17 @@ class SDNTrace(app_manager.RyuApp):
         switch = self.get_switch(ev.msg.datapath)
         switch.process_port_desc_stats_reply(ev)
 
+    @set_ev_cls(ofp_event.EventOFPDescStatsReply, MAIN_DISPATCHER)
+    def description_stats_reply_handler(self, ev):
+        """
+            Multipart Description Stats Description
+            Only used for OF1.3
+            Args:
+                ev: FeatureReply received
+        """
+        switch = self.get_switch(ev.msg.datapath)
+        switch.process_description_stats_reply(ev)
+
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
         """
@@ -219,10 +258,9 @@ class SDNTrace(app_manager.RyuApp):
         """
         switch = self.get_switch('%016x' % ev.msg.datapath.id, by_name=True)
         action, result, in_port = switch.process_packetIn(ev, self.links)
-        if action is 0:  # Table Miss, ignore
-            pass
-        elif action is 1:  # LLDP
-            self.links = result
+
+        if action is 1:  # LLDP
+            self.links.add_link(result)
             self.create_adjacencies(self.links)
         elif action is 2:  # Probe packets
             pkt = tracing.process_probe_packet(ev, result, in_port)
@@ -268,7 +306,7 @@ class SDNTrace(app_manager.RyuApp):
                 if self.colors == self.old_colors:
                     if not self.print_ready:
                         self.print_ready = True
-                        print 'System Ready!'
+                        print('SDNTrace Ready!')
                     return
 
         # Check all colors in use

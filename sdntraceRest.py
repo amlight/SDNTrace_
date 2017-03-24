@@ -29,6 +29,10 @@ class SDNTraceController(ControllerBase):
     def print_switches(self, req, **kwargs):
         return self._switches(req, **kwargs)
 
+    @route('sdntrace', '/sdntrace/switches/{dpid}/info', methods=['GET'])
+    def print_switch_info(self, req, **kwargs):
+        return self._switch_info(req, **kwargs)
+
     @route('sdntrace', '/sdntrace/switches/{dpid}/ports', methods=['GET'])
     def print_switch_ports(self, req, **kwargs):
         return self._switch_ports(req, **kwargs)
@@ -60,6 +64,21 @@ class SDNTraceController(ControllerBase):
     def _switches(self, req, **kwargs):
         sws = [switch.name for _, switch in self.sdntrace_app.switches.items()]
         body = json.dumps(sws)
+        return Response(content_type='application/json', body=body)
+
+    def _switch_info(self, req, **kwargs):
+        dpid = kwargs['dpid']
+        body = "0"  # in case user requests before switch appears
+        for _, switch in self.sdntrace_app.switches.items():
+            if switch.name == dpid:
+                info = {'Switch Name': switch.switch_name,
+                        'Switch Vendor': switch.switch_vendor,
+                        'Datapath ID': switch.datapath_id,
+                        'Switch Color': switch.color,
+                        'OpenFlow Version': switch.version_name,
+                        'IP Address': switch.addr[0],
+                        'TCP Port': switch.addr[1]}
+                body = json.dumps(info)
         return Response(content_type='application/json', body=body)
 
     def _switch_ports(self, req, **kwargs):

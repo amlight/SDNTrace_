@@ -1,12 +1,11 @@
 """
     OpenFlow generic switch class
 """
-
-
 from ryu.ofproto import ether
 from ryu.lib.packet import packet, lldp, ethernet, vlan
-from libs.coloring.auxiliary import simplify_list_links
 from libs.openflow.port_speed import get_speed_name
+from libs.coloring.links import Link
+
 
 class OFSwitch(object):
     """
@@ -15,19 +14,33 @@ class OFSwitch(object):
     """
     def __init__(self, ev, config_vars):
         self.obj = ev
-        self.dpid = ev.msg.datapath_id
+        self.dpid = self.obj.msg.datapath_id
         self.ports = dict()
-        self.adjacencies_list = []  # list of DPIDs or OFSwitch10?
+        self.adjacencies_list = []  # list of OFSwitch classes
         self.color = "0"
         self.old_color = "0"
         self.name = self.datapath_id
+        self.switch_name = None  # mfr_desc
+        self.switch_vendor = None  # mfr_desc
+        self.addr = ('0.0.0.0', 0)
+        self.version = None
         # TODO: Clear colored flows when connected
         # self.delete_colored_flows()
         self.clear_start = False
         # To avoid issues when deleting flows
         self.config_vars = config_vars
         # set cookie
+        self.cookie = None
         self.set_cookie()
+        # just to print connected once
+        self.just_connected = 0
+
+    @property
+    def version_name(self):
+        if self.version == 1:
+            return '1.0'
+        elif self.version == 4:
+            return '1.3'
 
     @property
     def datapath_id(self):
@@ -38,10 +51,36 @@ class OFSwitch(object):
         """
         return '%016x' % self.dpid
 
+    def update_addr(self, addr):
+        self.addr = addr
+        self.print_connected()
+
+    def print_connected(self):
+        self.just_connected += 1
+        if self.just_connected == 2:
+            print("Switch %s (%s) IP %s:%s OpenFlow version %s has just connected!" %
+                  (self.switch_name, self.datapath_id, self.addr[0],
+                   self.addr[1], self.version_name))
+
+    def print_removed(self):
+        print('Switch %s has just disconnected' % self.datapath_id)
+
     def set_cookie(self):
-        self.min_cookie_id = self.config_vars['MINIMUM_COOKIE_ID']
-        self.cookie = self.min_cookie_id + 1
-        self.min_cookie_id += 1
+        min_cookie_id = self.config_vars['openflow']['minimum_cookie_id']
+        self.cookie = min_cookie_id + 1
+        self.cookie += 1
+
+    def process_description_stats_reply(self, ev):
+        """
+            Process Multipart Description Stat Description
+            Used to collect the switch name - for now
+            Args:
+                ev: Multipart Reply message
+        """
+        body = ev.msg.body
+        self.switch_name = str(body.dp_desc)
+        self.switch_vendor = body.mfr_desc
+        self.print_connected()
 
     def create_adjacencies(self, obj, links):
         """
@@ -54,7 +93,7 @@ class OFSwitch(object):
                 links: SDNTrace.links
         """
         self.adjacencies_list[:] = []
-        for link in links:
+        for link in links.links:
             if link[0] == self.name:
                 neighbor = obj.get_switch(link[1], True)
                 self.adjacencies_list.append(neighbor)
@@ -70,7 +109,7 @@ class OFSwitch(object):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
-        self.push_flow(datapath, 0, 0, ofproto.OFPFC_ADD, match, actions)
+        self.push_flow(datapath, 0, 1, ofproto.OFPFC_ADD, match, actions)
 
     def port_status(self, ev):
         """
@@ -100,7 +139,6 @@ class OFSwitch(object):
             Sends PacketOut - Serializes Traces and LLDP packets for
             topology discovery
             Args:
-                node: node to send PacketOut
                 port: if LLDP: port to send PacketOut out. if
                       Trace: in_port field
                 data: Ethernet frame to be send
@@ -142,12 +180,17 @@ class OFSwitch(object):
             # It means no color was previously associated to this node
             return
         mac_color = "ee:ee:ee:ee:ee:%s" % int(color, 2)
-        match = parser.OFPMatch(eth_src=mac_color)
+
+        if self.version == 1:
+            match = parser.OFPMatch(dl_src=mac_color)
+        elif self.version == 4:
+            match = parser.OFPMatch(eth_src=mac_color)
+
         flags = 0
-        flow_prio = self.config_vars['FLOW_PRIORITY']
+        flow_prio = self.config_vars['trace']['flow_priority']
         self.push_flow(datapath, self.cookie, flow_prio,
-                         ofproto.OFPFC_DELETE_STRICT,
-                         match, actions, flags)
+                       ofproto.OFPFC_DELETE_STRICT,
+                       match, actions, flags)
 
     def push_color(self, match):
         """
@@ -158,16 +201,16 @@ class OFSwitch(object):
         """
         datapath = self.obj.msg.datapath
         ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
 
         op = ofproto.OFPP_CONTROLLER
         actions = [datapath.ofproto_parser.OFPActionOutput(op)]
 
-        flow_prio = self.config_vars['FLOW_PRIORITY']
+        flow_prio = self.config_vars['trace']['flow_priority']
         self.push_flow(datapath, self.cookie, flow_prio,
-                         ofproto.OFPFC_ADD, match, actions)
+                       ofproto.OFPFC_ADD, match, actions)
 
-    def process_packetIn(self, ev, links):
+    @staticmethod
+    def process_packetIn(ev, links):
         """
             Process PacketIn - core of the SDNTrace
             PacketIn.action will define the reason: if content is LLDP,
@@ -176,21 +219,22 @@ class OFSwitch(object):
             Args:
                 obj: SDNTrace object
                 ev: event
-                links: list of links known so far
+                links: List Class
             Returns:
                 0, 0 if table miss
                 2, pkt if not LLDP
                 1, list of current known links
         """
         pktIn_dpid = '%016x' % ev.msg.datapath.id
+        if ev.msg.version == 1:
+            pktIn_in_port = ev.msg.in_port
+        elif ev.msg.version == 4:
+            pktIn_in_port = ev.msg.match['in_port']
 
         # If it is a OFPR_NO_MATCH, it means it is not our packet
         # Return 0
-        # TODO: Fixes next lines - both OF1.0 and OF1.3 need the following
-        # filter. It is not working with OF1.3
-        if ev.msg.version == 1:
-            if ev.msg.reason == ev.msg.datapath.ofproto.OFPR_NO_MATCH:
-                return 0, 0, 0
+        if ev.msg.reason == ev.msg.datapath.ofproto.OFPR_NO_MATCH:
+            return 0, 0, 0
 
         pkt = packet.Packet(ev.msg.data)
         pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
@@ -207,16 +251,16 @@ class OFSwitch(object):
 
             ChassisID = pkt_lldp.tlvs[0]
             pktOut_dpid = ChassisID.chassis_id
-            link = pktIn_dpid, pktOut_dpid
 
-            # Keep a single record between switches
-            # It doesn't matter how many connections between them
-            links.append(link)
-            return 1, simplify_list_links(links), 0
+            PortId = pkt_lldp.tlvs[1]
+            pktOut_port = PortId.port_id
+
+            link = Link(pktIn_dpid, pktIn_in_port, pktOut_dpid, pktOut_port)
+            return 1, link, 0
 
         # If not LLDP, it could be a probe Packet
         else:
-            if self.version == 1:
+            if ev.msg.version == 1:
                 return 2, pkt, ev.msg.in_port
             elif ev.msg.version == 4:
                 return 2, pkt, ev.msg.match['in_port']

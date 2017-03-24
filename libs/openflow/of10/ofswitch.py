@@ -21,6 +21,18 @@ class OFSwitch10(OFSwitch):
         self.version = ofproto_v1_0.OFP_VERSION
         self.ports = self._extract_ports()
         self.prepare_default_flow()
+        self.request_initial_description()
+
+    def request_initial_description(self):
+        """
+            Sends Multipart Port Description to get
+            list of ports and configurations
+        """
+        datapath = self.obj.msg.datapath
+        parser = datapath.ofproto_parser
+        # Description Request
+        req = parser.OFPDescStatsRequest(datapath, 0)
+        datapath.send_msg(req)
 
     def _extract_ports(self):
         """
@@ -37,7 +49,7 @@ class OFSwitch10(OFSwitch):
         for _i in range(num_ports):
             if _i < ofproto.OFPP_MAX:
                 # TODO: investigate possible bug on Ryu
-                # if len(self.obj.msg.buf) != offset, Ryu crashes
+                # if len(self.obj.msg.buf) == offset, or offset < 48 Ryu crashes
                 # To try, just start and kill mininet a few times
                 if len(self.obj.msg.buf) != offset:
                     port = OFPPhyPort.parser(self.obj.msg.buf, offset)
@@ -55,7 +67,7 @@ class OFSwitch10(OFSwitch):
         """
         match = OFPMatch(dl_dst=lldp.LLDP_MAC_NEAREST_BRIDGE,
                          dl_type=ether.ETH_TYPE_LLDP,
-                         dl_vlan=self.config_vars['VLAN_DISCOVERY'])
+                         dl_vlan=self.config_vars['topo_discovery']['vlan_discovery'])
         self.add_default_flow(match)
 
     def install_color(self, color):
@@ -64,7 +76,7 @@ class OFSwitch10(OFSwitch):
             Args:
                 color: dl_src to be used
         """
-        mac_color = "ee:ee:ee:ee:ee:%s" % int(color,2)
+        mac_color = "ee:ee:ee:ee:ee:%s" % int(color, 2)
         self.push_color(OFPMatch(dl_src=mac_color))
 
     @staticmethod

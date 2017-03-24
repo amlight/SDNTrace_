@@ -8,7 +8,6 @@ def define_colors(switches):
         Get colors from coloring class
         Args:
             switches: dict of switches from SDNTrace class
-            links: SDNTrace.links
         Returns:
             list of colors and hosts to be used
     """
@@ -34,30 +33,13 @@ def save_current_colors(switches):
         switch.old_color = switch.color
 
 
-def simplify_list_links(links):
-    """
-        Removes duplicated link entries in links
-        Args:
-            links = list of known links
-        Returns:
-            links updated
-    """
-    # 1 - Sort links
-    for link in links:
-        idx = links.index(link)
-        links[idx] = tuple(sorted(link))
-    links = sorted(links)
-    # 2 - Remove duplicated
-    links = list(set(links))
-    return links
-
-
 def prepare_lldp_packet(node, port, vlan_id):
     """
         Prepare the LLDP frame to be used by PacketOut
         Args:
             node: destination node
             port: destination port
+            vlan_id: vlan tag to be added to pkt
         Returns:
             an Ethernet+LLDP frame (data field of PacketOut)
     """
@@ -66,6 +48,7 @@ def prepare_lldp_packet(node, port, vlan_id):
     # Generate Ethernet frame
     dst = lldp.LLDP_MAC_NEAREST_BRIDGE
     src = 'ca:fe:ca:fe:ca:fe'
+    vlan_pkt = None
 
     if vlan_id > 1:
         ethertype = ether.ETH_TYPE_8021Q
@@ -91,7 +74,6 @@ def prepare_lldp_packet(node, port, vlan_id):
     tlvs = (tlv_chassis_id, tlv_port_id, tlv_ttl, tlv_end)
     lldp_pkt = lldp.lldp(tlvs)
     pkt.add_protocol(lldp_pkt)
-
     pkt.serialize()
 
     return pkt
