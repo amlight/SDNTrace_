@@ -34,6 +34,7 @@ class OFSwitch(object):
         self.set_cookie()
         # just to print connected once
         self.just_connected = 0
+        self.flows = []
 
     @property
     def version_name(self):

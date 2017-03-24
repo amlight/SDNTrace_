@@ -9,7 +9,8 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import DEAD_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.lib import hub
+from ryu.lib import hub, ip, addrconv
+from ryu.lib.packet import ethernet, vlan, packet, ipv4, tcp
 from ryu.ofproto import ofproto_v1_0, ofproto_v1_3
 from ryu.topology import event
 
@@ -45,6 +46,7 @@ class SDNTrace(app_manager.RyuApp):
         self.push_colors = hub.spawn(self._push_colors)
         # self.stat_thread = hub.spawn(self._req_port_desc)
         self.tracing = hub.spawn(self._run_traces)
+        self.flows = hub.spawn(self.get_all_flows)
         # Traces
         self.trace_results_queue = dict()  # Pending Requested Traces
         self.trace_request_queue = dict()  # Trace results
@@ -348,3 +350,36 @@ class SDNTrace(app_manager.RyuApp):
         tracer = TracePath(self, rid, self.trace_request_queue[rid])
         tracer.initial_validation()
         return tracer.tracepath
+
+    def get_all_flows(self):
+        # TODO: change sleep time to config option
+        hub.sleep(10)
+        while True:
+            for s in self.switches.values():
+                self.get_flows(s)
+                hub.sleep(10)
+
+    def get_flows(self, switch):
+        dp = switch.obj.msg.datapath
+        ofp = dp.ofproto
+        ofp_parser = dp.ofproto_parser
+        match = ofp_parser.OFPMatch()
+        if switch.obj.msg.version == 1:
+            req = ofp_parser.OFPFlowStatsRequest(
+                dp, 0, match, 0xff, ofp.OFPP_NONE
+            )
+        elif switch.obj.msg.version == 4:
+            req = ofp_parser.OFPFlowStatsRequest(
+                dp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY,
+                0, 0, match
+            )
+        dp.send_msg(req)
+
+    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
+    def handle_flow_stats(self, ev):
+        flows = ev.msg.body
+
+        switch = self.get_switch(ev.msg.datapath)
+        switch.flows = sorted(flows, key=lambda f: f.priority, reverse=True)
+
+    # To match the flows, call switch.match_flow(in_port, packet)
