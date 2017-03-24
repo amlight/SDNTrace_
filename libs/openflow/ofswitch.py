@@ -35,6 +35,7 @@ class OFSwitch(object):
         # just to print connected once
         self.just_connected = 0
         self.flows = []
+        self.setup_interdomain()
 
     @property
     def version_name(self):
@@ -265,3 +266,30 @@ class OFSwitch(object):
                 return 2, pkt, ev.msg.in_port
             elif ev.msg.version == 4:
                 return 2, pkt, ev.msg.match['in_port']
+
+    def setup_interdomain(self):
+        """
+            In this section, we will reach the configuration
+            and push more specific flows per domain neighbor.
+            These flows will have higher priority. All values
+            will come from the [inter-domain] section
+        Returns:
+
+        """
+        # Check if this switch has neighbors
+        has_neighbor = False
+        locals = self.config_vars['inter-domain']['locals'].split(',')
+        for local in locals:
+            if local.split(':')[0] == self.datapath_id:
+                has_neighbor = True
+                print('%s has neighbors' % self.datapath_id)
+
+        if has_neighbor:
+            my_color = self.config_vars['inter-domain']['color'].split(',')
+            neighbors = self.config_vars['inter-domain']['neighbors'].split(',')
+            for neighbor in neighbors:
+                neighbor_conf = self.config_vars[neighbor]
+                local_switch = neighbor_conf['local'].split(':')[0]
+                local_port = neighbor_conf['local'].split(':')[1]
+                print(my_color, local_switch, local_port)
+                # Push a flow
