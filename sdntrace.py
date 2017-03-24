@@ -20,7 +20,7 @@ from libs.openflow.of13.ofswitch import OFSwitch13
 from libs.tracing import tracing
 from libs.tracing.tracer import TracePath
 from libs.coloring.links import Links
-
+from libs.core.rest.queries import FormatRest
 
 # Used to get the configuration file
 # entry trace_config in the config file provided
@@ -48,7 +48,7 @@ class SDNTrace(app_manager.RyuApp):
         # Traces
         self.trace_results_queue = dict()  # Pending Requested Traces
         self.trace_request_queue = dict()  # Trace results
-
+        # RestFormat
         self.config_vars = read_config(CONF.trace_config)  # Read configuration
         self.print_ready = False  # Just to print System Ready once
         self.trace_pktIn = []  # list of received PacketIn non LLDP
