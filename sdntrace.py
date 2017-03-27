@@ -357,7 +357,7 @@ class SDNTrace(app_manager.RyuApp):
         while True:
             for s in self.switches.values():
                 self.get_flows(s)
-                hub.sleep(10)
+            hub.sleep(10)
 
     def get_flows(self, switch):
         dp = switch.obj.msg.datapath
