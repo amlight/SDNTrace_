@@ -47,6 +47,7 @@ class SDNTrace(app_manager.RyuApp):
         # self.stat_thread = hub.spawn(self._req_port_desc)
         self.tracing = hub.spawn(self._run_traces)
         self.flows = hub.spawn(self.get_all_flows)
+        self.tests = hub.spawn(self.testing)
         # Traces
         self.trace_results_queue = dict()  # Pending Requested Traces
         self.trace_request_queue = dict()  # Trace results
@@ -281,6 +282,13 @@ class SDNTrace(app_manager.RyuApp):
         print ('OFPErrorMsg received: type=0x%02x code=0x%02x message=%s' %
                (msg.type, msg.code, utils.hex_array(msg.data)))
 
+    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
+    def handle_flow_stats(self, ev):
+        flows = ev.msg.body
+
+        switch = self.get_switch(ev.msg.datapath)
+        switch.flows = sorted(flows, key=lambda f: f.priority, reverse=True)
+
     def create_adjacencies(self, links):
         """
             Everytime self.links is updated, update all
@@ -356,30 +364,7 @@ class SDNTrace(app_manager.RyuApp):
         hub.sleep(10)
         while True:
             for s in self.switches.values():
-                self.get_flows(s)
+                s.get_flows()
             hub.sleep(10)
-
-    def get_flows(self, switch):
-        dp = switch.obj.msg.datapath
-        ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
-        match = ofp_parser.OFPMatch()
-        if switch.obj.msg.version == 1:
-            req = ofp_parser.OFPFlowStatsRequest(
-                dp, 0, match, 0xff, ofp.OFPP_NONE
-            )
-        elif switch.obj.msg.version == 4:
-            req = ofp_parser.OFPFlowStatsRequest(
-                dp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY,
-                0, 0, match
-            )
-        dp.send_msg(req)
-
-    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
-    def handle_flow_stats(self, ev):
-        flows = ev.msg.body
-
-        switch = self.get_switch(ev.msg.datapath)
-        switch.flows = sorted(flows, key=lambda f: f.priority, reverse=True)
 
     # To match the flows, call switch.match_flow(in_port, packet)

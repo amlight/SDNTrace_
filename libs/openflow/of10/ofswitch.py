@@ -108,6 +108,16 @@ class OFSwitch10(OFSwitch):
         datapath.send_msg(mod)
         datapath.send_barrier()
 
+    def get_flows(self):
+        dp = self.obj.msg.datapath
+        ofp = dp.ofproto
+        ofp_parser = dp.ofproto_parser
+        match = ofp_parser.OFPMatch()
+        req = ofp_parser.OFPFlowStatsRequest(
+            dp, 0, match, 0xff, ofp.OFPP_NONE
+        )
+        dp.send_msg(req)
+
     def match_flow(self, in_port, pkt):
 
         for flow in self.flows:
