@@ -360,11 +360,10 @@ class SDNTrace(app_manager.RyuApp):
         return tracer.tracepath
 
     def get_all_flows(self):
-        # TODO: change sleep time to config option
-        hub.sleep(10)
         while True:
+            hub.sleep(self.config_vars['statistics']['flowstats_interval'])
             for s in self.switches.values():
                 s.get_flows()
-            hub.sleep(10)
 
     # To match the flows, call switch.match_flow(in_port, packet)
+                

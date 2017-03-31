@@ -5,7 +5,8 @@ dict_type = {'trace': {'push_color_interval': 'int',
                        'flow_priority': 'int'},
              'topo_discovery':{'packet_out_interval': 'int',
                                'vlan_discovery': 'int'},
-             'statistics': {'collect_interval': 'int'},
+             'statistics': {'collect_interval': 'int',
+                            'flowstats_interval': 'int'},
              'openflow': {'minimum_cookie_id': 'int'}
              }
 
