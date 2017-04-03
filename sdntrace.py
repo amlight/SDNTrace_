@@ -15,7 +15,7 @@ from ryu.topology import event
 
 from libs.coloring.auxiliary import prepare_lldp_packet, define_colors
 from libs.core.read_config import read_config
-from libs.openflow.ofswitch import new_switch
+from libs.openflow.new_switch import new_switch
 from libs.tracing import tracing
 from libs.tracing.tracer import TracePath
 from libs.coloring.links import Links
