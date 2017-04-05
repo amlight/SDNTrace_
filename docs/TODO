@@ -1,6 +1,22 @@
-define inter-domain contract format
-read contract
-Interdomain support
-
 
 logging instead of printing
+
+Interdomain support:
+
+A) Initial config:
+1) Once a switch connects, check if its DPID is listed in the sdntrace.conf inter-domain.locals
+2) If so, go to each domain and look for my dpid in the local attribute
+3) If found, get the color variable. Use the variable.split(',')[1] as a color
+4) Push a specific higher priority flow with the port in local and the color
+
+B) Starts an inter-domain trace:
+Tracer:77
+1) If timeout is reached, assert switch.is_boundary, True
+2) Then switch.match_flow and if result != 0
+2) prepare and send an inter-domain probe
+
+C) Receives an inter-domain trace:
+
+Change the process_packetIn to
+
+D) Upload results via REST
