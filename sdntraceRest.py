@@ -63,6 +63,10 @@ class SDNTraceController(ControllerBase):
     def print_colors(self, req, **kwargs):
         return self._get_trace(req, **kwargs)
 
+    @route('sdntrace', '/sdntrace/trace/{trace_id}/inter', methods=['PUT'])
+    def put_trace_inter(self, req, **kwargs):
+        return self._put_trace_inter(req, **kwargs)
+
     def _switches(self, req, **kwargs):
         sws = [switch.name for _, switch in self.sdntrace_app.switches.items()]
         body = json.dumps(sws)
@@ -143,3 +147,15 @@ class SDNTraceController(ControllerBase):
             print('SDNTraceRest Error: %s' % e)
             body = json.dumps({'error': '%s' % str(e)})
             return Response(content_type='application/json', body=body, status=500)
+
+    def _put_trace_inter(self, req, **kwargs):
+        """
+            This method was created for the neighbor domains to upload the trace
+            results. Once result is received and validated, it is added to the
+            self.sdntrace_app.trace_results_queue after type=interdomain
+            Args:
+                req: dictionary in the REST format
+                **kwargs:
+        """
+        print("Inter-domain SDNTrace updates")
+        pass

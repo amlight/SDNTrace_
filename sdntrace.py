@@ -15,12 +15,11 @@ from ryu.topology import event
 
 from libs.coloring.auxiliary import prepare_lldp_packet, define_colors
 from libs.core.read_config import read_config
-from libs.openflow.of10.ofswitch import OFSwitch10
-from libs.openflow.of13.ofswitch import OFSwitch13
+from libs.openflow.new_switch import new_switch
 from libs.tracing import tracing
 from libs.tracing.tracer import TracePath
 from libs.coloring.links import Links
-from libs.core.rest.queries import FormatRest
+
 
 # Used to get the configuration file
 # entry trace_config in the config file provided
@@ -43,8 +42,8 @@ class SDNTrace(app_manager.RyuApp):
         # Threads
         self.topo_disc = hub.spawn(self._topology_discovery)
         self.push_colors = hub.spawn(self._push_colors)
-        # self.stat_thread = hub.spawn(self._req_port_desc)
         self.tracing = hub.spawn(self._run_traces)
+        self.flows = hub.spawn(self.get_all_flows)
         # Traces
         self.trace_results_queue = dict()  # Pending Requested Traces
         self.trace_request_queue = dict()  # Trace results
@@ -56,7 +55,7 @@ class SDNTrace(app_manager.RyuApp):
     # Auxiliary Threads
     def _topology_discovery(self):
         """
-            Keeps looping node_list every PACKET_OUT_INTERVAL seconds
+            Keeps looping self.switches every PACKET_OUT_INTERVAL seconds
             Send a packet_out w/ LLDP to every port found
             Args:
                 self
@@ -86,23 +85,9 @@ class SDNTrace(app_manager.RyuApp):
                     self.install_colored_flows()
             hub.sleep(self.config_vars['trace']['push_color_interval'])
 
-    # def _req_port_desc(self):
-    #     """
-    #         OF1.3 only
-    #         Because FeatureReply doesn't provide port info
-    #         we need to use multipart request with option
-    #         OFPPortDescStatsRequests
-    #     """
-    #     while True:
-    #         if len(self.switches) > 0:
-    #             for _, switch in self.switches.items():
-    #                 if switch.version == ofproto_v1_3.OFP_VERSION:
-    #                     switch.request_port_description()
-    #         hub.sleep(self.config_vars['statistics']['collect_interval'])
-
     def _run_traces(self):
         """
-            Reads the trace_request_queue queue for new request
+            Reads the trace_request_queue queue for new requests
             Once a request is found, creates a thread to process it
         """
         while True:
@@ -116,30 +101,26 @@ class SDNTrace(app_manager.RyuApp):
                         del self.trace_request_queue[rid]
                 except Exception as e:
                     print("Error %s" % e)
-            hub.sleep(0.5)
+            hub.sleep(self.config_vars['trace']['run_trace_interval'])
+
+    def get_all_flows(self):
+        """
+            Keep asking for flow entries of each switch
+
+        """
+        while True:
+            for s in self.switches.values():
+                s.get_flows()
+            hub.sleep(self.config_vars['statistics']['flowstats_interval'])
 
     # Main thread
-    def instantiate_switch(self, ev):
-        """
-            Instantiate an OpenFlow 1.0 or 1.3 switch
-            Args:
-                ev: FeatureReply received
-            Returns:
-                OFSwitch1* class
-        """
-        if ev.msg.version == ofproto_v1_0.OFP_VERSION:
-            return OFSwitch10(ev, self.config_vars)
-        elif ev.msg.version == ofproto_v1_3.OFP_VERSION:
-            return OFSwitch13(ev, self.config_vars)
-        return False
-
     def add_switch(self, ev):
         """
             Add the new switch to the self.switches dict
             Args:
                 ev: FeatureReply
         """
-        self.switches[ev.msg.datapath_id] = self.instantiate_switch(ev)
+        self.switches[ev.msg.datapath_id] = new_switch(ev, self.config_vars)
 
     def del_switch(self, ev):
         """
@@ -182,6 +163,7 @@ class SDNTrace(app_manager.RyuApp):
         sw = self.get_switch(dpid, True)
         sw.update_addr(switch_dp.address)
 
+    # Event Listeners
     @set_ev_cls(event.EventSwitchEnter)
     def get_topology_data(self, ev):
         """
@@ -279,6 +261,21 @@ class SDNTrace(app_manager.RyuApp):
         print ('OFPErrorMsg received: type=0x%02x code=0x%02x message=%s' %
                (msg.type, msg.code, utils.hex_array(msg.data)))
 
+    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
+    def handle_flow_stats(self, ev):
+        """
+            Process OFPFlowStatsReply saving all the flows
+            associated with a switch. These flows will be used for
+            the inter-domain trace
+            Args:
+                ev: EventOFPFlowStatsReply message
+        """
+        flows = ev.msg.body
+
+        switch = self.get_switch(ev.msg.datapath)
+        switch.flows = sorted(flows, key=lambda f: f.priority, reverse=True)
+
+    # Other methods
     def create_adjacencies(self, links):
         """
             Everytime self.links is updated, update all

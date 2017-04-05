@@ -3,6 +3,7 @@
 """
 from ryu.ofproto import ether
 from ryu.lib.packet import lldp
+from ryu.lib import ip, addrconv
 from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto.ofproto_v1_0_parser import OFPPhyPort
 from ryu.ofproto.ofproto_v1_0_parser import OFPMatch
@@ -106,3 +107,92 @@ class OFSwitch10(OFSwitch):
 
         datapath.send_msg(mod)
         datapath.send_barrier()
+
+    def get_flows(self):
+        dp = self.obj.msg.datapath
+        ofp = dp.ofproto
+        ofp_parser = dp.ofproto_parser
+        match = ofp_parser.OFPMatch()
+        req = ofp_parser.OFPFlowStatsRequest(
+            dp, 0, match, 0xff, ofp.OFPP_NONE
+        )
+        dp.send_msg(req)
+
+    def match_flow(self, in_port, pkt):
+
+        for flow in self.flows:
+            if self.match(flow.match, pkt, in_port, self.obj.msg.datapath.ofproto):
+                for action in flow.actions:
+                    # TODO: test if it is an action output
+                    return action.port
+        return 0
+
+    @staticmethod
+    def match(flow, pkt, in_port, ofp):
+        eth = pkt[0]
+        vlan = pkt[1]
+
+        if not flow.wildcards & ofp.OFPFW_IN_PORT:
+            if flow.in_port != in_port:
+                return False
+
+        if not flow.wildcards & ofp.OFPFW_DL_VLAN_PCP:
+            if flow.dl_vlan_pcp != vlan.pcp:
+                return False
+
+        if not flow.wildcards & ofp.OFPFW_DL_VLAN:
+            if flow.dl_vlan != vlan.vid:
+                return False
+
+        if not flow.wildcards & ofp.OFPFW_DL_SRC:
+            print('Flow %s, pkt %s' % (flow.dl_src, eth.src))
+            if flow.dl_src != addrconv.mac.text_to_bin(eth.src):
+                return False
+
+        if not flow.wildcards & ofp.OFPFW_DL_DST:
+            if flow.dl_dst != addrconv.mac.text_to_bin(eth.dst):
+                return False
+
+        if not flow.wildcards & ofp.OFPFW_DL_TYPE:
+            if flow.dl_type != vlan.ethertype:
+                return False
+
+        if vlan.ethertype == 0x0800:
+            ipp = pkt[2]
+            tp = pkt[3]
+
+            ip_src = ip.ipv4_to_int(ipp.src)
+            if ip_src != 0:
+                mask = (flow.wildcards & ofp.OFPFW_NW_SRC_MASK) >> ofp.OFPFW_NW_SRC_SHIFT
+                if mask > 32:
+                    mask = 32
+                mask = (0xffffffff << mask) & 0xffffffff
+                if ip_src & mask != flow.nw_src & mask:
+                    return False
+
+            ip_dst = ip.ipv4_to_int(ipp.dst)
+            if ip_dst != 0:
+                mask = (flow.wildcards & ofp.OFPFW_NW_DST_MASK) >> ofp.OFPFW_NW_DST_SHIFT
+                if mask > 32:
+                    mask = 32
+                mask = (0xffffffff << mask) & 0xffffffff
+                if ip_dst & mask != flow.nw_dst & mask:
+                    return False
+
+            if not flow.wildcards & ofp.OFPFW_NW_TOS:
+                if flow.nw_tos != ipp.tos:
+                    return False
+
+            if not flow.wildcards & ofp.OFPFW_NW_PROTO:
+                if flow.nw_proto != ipp.proto:
+                    return False
+
+            if not flow.wildcards & ofp.OFPFW_TP_SRC:
+                if flow.tp_src != tp.src:
+                    return False
+
+            if not flow.wildcards & ofp.OFPFW_TP_DST:
+                if flow.tp_dst != tp.dst:
+                    return False
+
+        return True

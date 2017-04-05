@@ -34,6 +34,7 @@ class OFSwitch(object):
         self.set_cookie()
         # just to print connected once
         self.just_connected = 0
+        self.flows = []
         self.setup_interdomain()
 
     @property
@@ -53,10 +54,20 @@ class OFSwitch(object):
         return '%016x' % self.dpid
 
     def update_addr(self, addr):
+        """
+            This method is used to get the switch IP address and port.
+            It has no purpose for the SDNTrace, just for the GUI
+        """
         self.addr = addr
         self.print_connected()
 
     def print_connected(self):
+        """
+            This method just prints that a switch has connected. It waits for both
+            FeatureReply (+1) and EventConnnect(+1). The way used to force that both
+            need to be seen is that the self.just_connect is increased by 1 per message
+            received. This function is used just for information on the CLI.
+        """
         self.just_connected += 1
         if self.just_connected == 2:
             print("Switch %s (%s) IP %s:%s OpenFlow version %s has just connected!" %
@@ -64,9 +75,18 @@ class OFSwitch(object):
                    self.addr[1], self.version_name))
 
     def print_removed(self):
+        """
+            Just print that the switch was disconnected
+        """
         print('Switch %s has just disconnected' % self.datapath_id)
 
     def set_cookie(self):
+        """
+            Cookies will be used to guarantee that any flow installed or
+            removed will be traceable. The idea is to avoid removing user flows.
+
+        """
+        # TODO: It is not 100% yet.
         min_cookie_id = self.config_vars['openflow']['minimum_cookie_id']
         self.cookie = min_cookie_id + 1
         self.cookie += 1
@@ -291,4 +311,4 @@ class OFSwitch(object):
                 local_switch = neighbor_conf['local'].split(':')[0]
                 local_port = neighbor_conf['local'].split(':')[1]
                 print(my_color, local_switch, local_port)
-                # Push a flow
+                # TODO: Push a flow

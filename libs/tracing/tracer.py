@@ -35,6 +35,14 @@ class TracePath(object):
         self.rest = FormatRest(self.obj)
 
     def initial_validation(self):
+        """
+            Make sure the switch selected by the user exists.
+            In fact, this method has to validate all params inputed.
+        Returns:
+            True: all set
+            False: switch requested doesn't exist
+
+        """
         dpid = self.init_entries['trace']['switch']['dpid']
         self.init_switch = self.obj.get_switch(dpid, by_name=True)
         if not isinstance(self.init_switch, bool):
@@ -44,6 +52,15 @@ class TracePath(object):
     def tracepath(self):
         """
             Do the trace path
+            The logic is very simple:
+            1 - Generate the probe packet using entries provided
+            2 - Results a result and the packet_in (used to generate new probe)
+                Possible results: 'timeout' meaning the end of trace
+                                  or the trace step {'dpid', 'port'}
+                Some networks do vlan rewrite, so it is important to get the
+                packetIn msg with the header
+            3 - If result is a trace step, send PacketOut to the switch that
+                originated the PacketIn. Repeat till reaching timeout
         """
         print("Starting Trace Path for ID %s" % self.id)
         entries = self.init_entries
@@ -56,17 +73,6 @@ class TracePath(object):
 
         # A loop waiting for trace_ended. It changes to True when reaches timeout
         while not self.trace_ended:
-            """
-                The logic is very simple:
-                1 - Generate the probe packet using entries provided
-                2 - Results a result and the packet_in (used to generate new probe)
-                    Possible results: 'timeout' meaning the end of trace
-                                      or the trace step {'dpid', 'port'}
-                    Some networks do vlan rewrite, so it is important to get the
-                    packetIn msg with the header
-                3 - If result is a trace step, send PacketOut to the switch that
-                    originated the PacketIn. Repeat till reaching timeout
-            """
             # Generate the probe packet
             in_port, probe_pkt = generate_trace_pkt(entries, color, self.id)
             # Send Packet out and try to get a PacketIn
@@ -93,7 +99,7 @@ class TracePath(object):
                 prepare = prepare_next_packet
                 entries, color, switch = prepare(self.obj, entries, result, packet_in)
 
-        # Identify next hop to confirm if inter-domain
+        # TODO: Identify next hop to confirm if inter-domain
         # If so, get the contract file
         is_inter_domain = False
 
