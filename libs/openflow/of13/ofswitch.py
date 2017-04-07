@@ -72,6 +72,30 @@ class OFSwitch13(OFSwitch):
         mac_color = "ee:ee:ee:ee:ee:%s" % int(color, 2)
         self.push_color(OFPMatch(eth_src=mac_color))
 
+    def install_interdomain_color(self, color, in_port, priority):
+        """
+            Prepare to send the FlowMod to install interdomain
+            colored flows
+            Args:
+                color: dl_src to be used
+                in_port: incoming port
+                priority: flow priority
+        """
+        if not isinstance(priority, int):
+            priority = int(priority)
+        if not isinstance(in_port, int):
+            in_port = int(in_port)
+
+        datapath = self.obj.msg.datapath
+        ofproto = datapath.ofproto
+        match = OFPMatch(in_port=in_port, eth_src=color)
+
+        op = ofproto.OFPP_CONTROLLER
+        actions = [datapath.ofproto_parser.OFPActionOutput(op)]
+
+        self.push_flow(datapath, self.cookie, priority,
+                       ofproto.OFPFC_ADD, match, actions)
+
     @staticmethod
     def push_flow(datapath, cookie, priority, command, match, actions,
                   flags=1):

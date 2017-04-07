@@ -2,11 +2,11 @@
     "trace" : 
     {
         "switch": {
-            "dpid" : "0000000000000004",
-            "in_port": 4
+            "dpid" : "0000000000000006",
+            "in_port": 1
         },
         "eth" : {
-            "dl_vlan": 100,
+            "dl_vlan": 200,
             "dl_type": 2048
         }
     }

@@ -7,7 +7,7 @@ from libs.core.rest.queries import FormatRest
 
 
 sdntrace_instance_name = 'sdntrace_api_app'
-request_id = 80000
+#request_id = 80000
 
 
 class SDNTraceRest(sdntrace.SDNTrace):
@@ -60,10 +60,10 @@ class SDNTraceController(ControllerBase):
         return self._trace(req, **kwargs)
 
     @route('sdntrace', '/sdntrace/trace/{trace_id}', methods=['GET'])
-    def print_colors(self, req, **kwargs):
+    def get_trace(self, req, **kwargs):
         return self._get_trace(req, **kwargs)
 
-    @route('sdntrace', '/sdntrace/trace/{trace_id}/inter', methods=['PUT'])
+    @route('sdntrace', '/sdntrace/trace/inter', methods=['PUT'])
     def put_trace_inter(self, req, **kwargs):
         return self._put_trace_inter(req, **kwargs)
 
@@ -136,8 +136,8 @@ class SDNTraceController(ControllerBase):
 
             # First, generate an ID to be send back to user
             # This ID will be used as the data in the packet
-            global request_id
-            request_id += 1
+            #global request_id
+            request_id = self.sdntrace_app.get_request_id()
             # Add to the tracing queue
             nodes_app.trace_request_queue[request_id] = new_entry
             body = json.dumps({'request_id': request_id})
@@ -158,4 +158,34 @@ class SDNTraceController(ControllerBase):
                 **kwargs:
         """
         print("Inter-domain SDNTrace updates")
-        pass
+        try:
+            new_entry = eval(req.body)
+            interdomain = new_entry[0]
+            other_entries = new_entry[1]
+
+        except Exception as e:
+            print('SDNTraceRest Error: %s' % e)
+            body = json.dumps({'error': "malformed request %s" % e})
+            return Response(content_type='application/json', body=body, status=500)
+
+        trace_id = int(new_entry[0]['request_id'])
+        trace_results = self.sdntrace_app.trace_results_queue[trace_id]
+
+        new_results = dict()
+        new_results['start_time'] = trace_results['start_time']
+        new_results['request_id'] = trace_results['request_id']
+
+        tmp_result = []
+        for result in trace_results['result']:
+            if result['type'] != 'last':
+                tmp_result.append(result)
+            elif result['type'] == 'last':
+                tmp_result.append(interdomain)
+                for entry in other_entries['result']:
+                    if entry['type'] in ['trace', 'starting']:
+                        tmp_result.append(entry)
+                tmp_result.append(result)
+
+        new_results['result'] = tmp_result
+
+        self.sdntrace_app.trace_results_queue[trace_id] = new_results

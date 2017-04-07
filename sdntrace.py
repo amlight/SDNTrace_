@@ -17,6 +17,7 @@ from libs.coloring.auxiliary import prepare_lldp_packet, define_colors
 from libs.core.read_config import read_config
 from libs.openflow.new_switch import new_switch
 from libs.tracing import tracing
+from libs.tracing.trace_pkt import generate_entries_from_packet_in
 from libs.tracing.tracer import TracePath
 from libs.coloring.links import Links
 
@@ -47,10 +48,12 @@ class SDNTrace(app_manager.RyuApp):
         # Traces
         self.trace_results_queue = dict()  # Pending Requested Traces
         self.trace_request_queue = dict()  # Trace results
-        # RestFormat
+        self.request_id = 80000  # Used for Packet-In generated traces
+        self.trace_pktIn = []  # list of received PacketIn non LLDP
+        # Other variables
         self.config_vars = read_config(CONF.trace_config)  # Read configuration
         self.print_ready = False  # Just to print System Ready once
-        self.trace_pktIn = []  # list of received PacketIn non LLDP
+
 
     # Auxiliary Threads
     def _topology_discovery(self):
@@ -245,10 +248,20 @@ class SDNTrace(app_manager.RyuApp):
             self.links.add_link(result)
             self.create_adjacencies(self.links)
         elif action is 2:  # Probe packets
-            pkt = tracing.process_probe_packet(ev, result, in_port)
-            if pkt is not False:
+            trace_type, pkt = tracing.process_probe_packet(ev, result, in_port,
+                                                           self.config_vars,
+                                                           switch)
+            if trace_type is 'Intra' and pkt is not False:
                 # This list is store all PacketIn message received
                 self.trace_pktIn.append(pkt)
+            elif trace_type is 'Inter':
+                print('Inter-domain probe received')
+                # Convert pkt.data to entries
+                new_entries = generate_entries_from_packet_in(ev, switch.datapath_id,
+                                                              in_port)
+                # add new_entries to the trace_request_queue
+                r_id = self.get_request_id()
+                self.trace_request_queue[r_id] = new_entries
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
     def openflow_error(self, ev):
@@ -258,8 +271,8 @@ class SDNTrace(app_manager.RyuApp):
                 ev: event
         """
         msg = ev.msg
-        print ('OFPErrorMsg received: type=0x%02x code=0x%02x message=%s' %
-               (msg.type, msg.code, utils.hex_array(msg.data)))
+        print('OFPErrorMsg received: type=0x%02x code=0x%02x message=%s' %
+              (msg.type, msg.code, utils.hex_array(msg.data)))
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def handle_flow_stats(self, ev):
@@ -331,6 +344,10 @@ class SDNTrace(app_manager.RyuApp):
             del neighbor_colors
             switch.old_color = switch.color
         self.old_colors = self.colors
+
+    def get_request_id(self):
+        self.request_id += 1
+        return self.request_id
 
     def spawn_trace(self, rid):
         """
