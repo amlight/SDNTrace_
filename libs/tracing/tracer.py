@@ -34,6 +34,12 @@ class TracePath(object):
         self.init_switch = None
         self.rest = FormatRest(self.obj)
 
+        # Support for inter-domain
+        self.inter_domain = False
+        self.remote_server = False
+        self.mydomain = self.obj.config_vars['inter-domain']['my_domain']
+        self.check_if_interdomain()
+
     def initial_validation(self):
         """
             Make sure the switch selected by the user exists.
@@ -48,6 +54,26 @@ class TracePath(object):
         if not isinstance(self.init_switch, bool):
             return True
         return 'Error: DPID provided was not found'
+
+    def check_if_interdomain(self):
+        src_switch = self.init_entries['trace']['switch']['dpid']
+        src_port = self.init_entries['trace']['switch']['in_port']
+
+        locals = self.obj.config_vars['inter-domain']['locals'].split(',')
+        for local in locals:
+            if local.split(':')[0] == src_switch and int(local.split(':')[1]) == src_port:
+                self.inter_domain = True
+                print(self.init_entries['trace']['remote_id'].split(':')[1])
+                self.remote_request_id = self.init_entries['trace']['remote_id'].split(':')[1]
+                print(self.remote_request_id)
+                break
+
+        if self.inter_domain:
+            neighbors = self.obj.config_vars['inter-domain']['neighbors'].split(',')
+            for neighbor in neighbors:
+                if self.obj.config_vars[neighbor]['local'].split(':')[0] == src_switch:
+                    self.remote_server = self.obj.config_vars[neighbor]['service']
+                    break
 
     def tracepath(self):
         """
@@ -74,14 +100,14 @@ class TracePath(object):
         # A loop waiting for trace_ended. It changes to True when reaches timeout
         while not self.trace_ended:
             # Generate the probe packet
-            in_port, probe_pkt = generate_trace_pkt(entries, color, self.id)
+            in_port, probe_pkt = generate_trace_pkt(entries, color, self.id, self.mydomain)
             # Send Packet out and try to get a PacketIn
             result, packet_in = self.send_trace_probe(switch, in_port, probe_pkt)
             # If timeout
             if result == 'timeout':
                 # Add last trace step
-                self.rest.add_trace_step(self.trace_result, trace_type='last', reason='done')
-                print("Trace Completed!")
+                self.rest.add_trace_step(self.trace_result, trace_type='last')
+                print("Intra-Domain Trace Completed!")
                 self.trace_ended = True
             # If not timeout
             else:
@@ -99,18 +125,25 @@ class TracePath(object):
                 prepare = prepare_next_packet
                 entries, color, switch = prepare(self.obj, entries, result, packet_in)
 
-        # TODO: Identify next hop to confirm if inter-domain
-        # If so, get the contract file
-        is_inter_domain = False
+        # Check if the last switch has inter-domain neighbors
+        # if so, infer is current flows go through the interdomain port
 
-        if is_inter_domain:
-            self.trace_interdomain()
+        if switch.is_inter_domain:
+            out_port = switch.match_flow(in_port, probe_pkt)
+            if out_port in switch.inter_domain_ports.keys():
+                neighbor_conf = switch.inter_domain_ports[out_port]
+                self.trace_interdomain(switch, neighbor_conf, entries, color, in_port)
+                # Set a timer to wait for the
+                #  {"type":"intertrace", "domain":"domainB_name"}
 
         # Add final result to trace_results_queue
         self.obj.trace_results_queue[self.id] = {"request_id": self.id,
                                                  "result": self.trace_result,
                                                  "start_time": str(self.rest.start_time),
                                                  "total_time": self.rest.get_time()}
+
+        if self.inter_domain:
+            self.upload_trace_interdomain(self.remote_server, self.obj.trace_results_queue[self.id])
 
     def send_trace_probe(self, switch, in_port, probe_pkt):
         """
@@ -146,7 +179,7 @@ class TracePath(object):
                     # Let's look for one with our self.id
                     # Each entry has the following format:
                     # (pktIn_dpid, pktIn_port, pkt[-1], pkt, ev)
-                    if self.id == int(pIn[2]):
+                    if self.id == int(pIn[2].split(':')[1]):
                         self.clear_trace_pkt_in()
                         return {'dpid': pIn[0], "port": pIn[1]}, pIn[4]
 
@@ -155,7 +188,7 @@ class TracePath(object):
             Once the probe PacketIn was processed, delete it from queue
         """
         for pIn in self.obj.trace_pktIn:
-            if self.id == int(pIn[2]):
+            if self.id == int(pIn[2].split(':')[1]):
                 self.obj.trace_pktIn.remove(pIn)
 
     def check_loop(self):
@@ -171,7 +204,47 @@ class TracePath(object):
             i += 1
         return 0
 
-    def trace_interdomain(self):
+    def trace_interdomain(self, switch, neighbor_conf, entries, color, in_port):
         # Inter-domain operations start here...
         # Rewrite trace
-        pass
+        print('Inter-Domain Trace Started!')
+        neighbor_color = neighbor_conf['color'].split(',')[1]
+        # Customize a trace_pkt
+        # Assuming switch.color (intra) is different
+        # from neighbor.color (inter), creates a probe packet
+        # If switch.color == neighbor.color, it is not going to work
+        # with dl_src it wont be a problem because we can use ranges
+        # if we move to a limited field (vlan_pcp), it is important to
+        # make sure colors are not the same
+        _, probe_pkt = generate_trace_pkt(entries, neighbor_color, self.id,
+                                          self.mydomain, interdomain=True)
+        # Send a packet-out
+        switch.send_packet_out(in_port, probe_pkt.data)
+        print('Inter-Domain Trace: Packet Out sent!')
+        # How many packet outs to send?
+        # just one for now
+
+    def upload_trace_interdomain(self, remote, trace_result):
+        """
+
+        Args:
+            remote:
+            trace_result:
+
+        Returns:
+
+        """
+        print('Uploading Inter-domain Trace Results')
+        final_result = []
+        final_result.append({"type":"intertrace", "domain": self.mydomain,
+                            "request_id": self.remote_request_id})
+        final_result.append(trace_result)
+
+        # Now upload
+        import urllib2, json
+        opener = urllib2.build_opener(urllib2.HTTPHandler)
+        request = urllib2.Request(remote, data=json.dumps(final_result))
+        request.add_header('Content-Type', 'application/json')
+        request.get_method = lambda: 'PUT'
+        url = opener.open(request)
+        print('Upload completed')

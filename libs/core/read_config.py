@@ -13,7 +13,11 @@ dict_type = {'trace': {'push_color_interval': 'int',
 
 
 def read_config(config_file='./conf/sdntrace.conf'):
+    """
+
+    """
     config = ConfigParser.ConfigParser()
+    # TODO: Generate exception if file is not found
     config.read(config_file)
     sections = dict()
     for section in config.sections():

@@ -35,6 +35,9 @@ class OFSwitch(object):
         # just to print connected once
         self.just_connected = 0
         self.flows = []
+        # set up inter-domain
+        self.is_inter_domain = False
+        self.inter_domain_ports = dict()
         self.setup_interdomain()
 
     @property
@@ -292,23 +295,19 @@ class OFSwitch(object):
             and push more specific flows per domain neighbor.
             These flows will have higher priority. All values
             will come from the [inter-domain] section
-        Returns:
-
         """
         # Check if this switch has neighbors
-        has_neighbor = False
         locals = self.config_vars['inter-domain']['locals'].split(',')
         for local in locals:
             if local.split(':')[0] == self.datapath_id:
-                has_neighbor = True
-                print('%s has neighbors' % self.datapath_id)
+                self.is_inter_domain = True
 
-        if has_neighbor:
-            my_color = self.config_vars['inter-domain']['color'].split(',')
+        if self.is_inter_domain:
+            my_color = self.config_vars['inter-domain']['color'].split(',')[1]
             neighbors = self.config_vars['inter-domain']['neighbors'].split(',')
             for neighbor in neighbors:
                 neighbor_conf = self.config_vars[neighbor]
-                local_switch = neighbor_conf['local'].split(':')[0]
                 local_port = neighbor_conf['local'].split(':')[1]
-                print(my_color, local_switch, local_port)
-                # TODO: Push a flow
+                self.inter_domain_ports[local_port] = neighbor_conf
+                prio = self.config_vars['inter-domain']['priority']
+                self.install_interdomain_color(my_color, local_port, prio)

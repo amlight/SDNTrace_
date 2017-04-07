@@ -1,4 +1,5 @@
 from ryu.lib.packet import ethernet, vlan, packet, ipv4, tcp
+from ryu.ofproto import ether
 
 
 def prepare_switch(switch, dpid, in_port):
@@ -43,7 +44,7 @@ def prepare_tp(tp, tp_src, tp_dst):
     return tp_src, tp_dst
 
 
-def generate_trace_pkt(entries, color, r_id):
+def generate_trace_pkt(entries, color, r_id, my_domain, interdomain=False):
     '''
         Receives the REST/PUT to generate a PacketOut
         data needs to be serialized
@@ -58,7 +59,10 @@ def generate_trace_pkt(entries, color, r_id):
     # TODO Validate for dl_vlan. If empty, return error.
 
     dpid, in_port = 0, 65532
-    dl_src = "ee:ee:ee:ee:ee:%s" % int(color,2)
+    if interdomain:
+        dl_src = color
+    else:
+        dl_src = "ee:ee:ee:ee:ee:%s" % int(color,2)
     dl_dst = "ca:fe:ca:fe:ca:fe"
     dl_vlan, dl_type = 100, 2048
     nw_src, nw_dst, nw_tos = '127.0.0.1', '127.0.0.1', 0
@@ -109,9 +113,8 @@ def generate_trace_pkt(entries, color, r_id):
         tp_pkt = tcp.tcp(dst_port=int(tp_dst), src_port=int(tp_src))
         pkt.add_protocol(tp_pkt)
 
-    data = str(r_id)   # this will be the ID
+    data = "%s:%s" % (my_domain, r_id)   # this will be the ID
     pkt.add_protocol(data)
-
     pkt.serialize()
     return in_port, pkt
 
@@ -143,3 +146,53 @@ def prepare_next_packet(obj, entries, result, ev):
     entries['trace']['eth']['dl_vlan'] = get_vlan_from_pkt(ev.msg.data)
 
     return entries, color, switch
+
+
+def generate_entries_from_packet_in(packet_in, datapath_id, in_port):
+    """
+        Extract the probe msg from a PacketIn.data
+    Args:
+        packet_in:
+
+    Returns:
+        dictionary with the fields to be used by the Tracer class
+    """
+    entries = dict()
+    # Default Init
+    entries['trace'] = {'switch': {}, 'eth': {}, 'ip': {}, 'tp': {}}
+    entries['trace']['eth']['dl_dst'] = "ca:fe:ca:fe:ca:fe"
+    entries['trace']['eth']['dl_vlan'] = 100
+    entries['trace']['ip']['nw_src'] = '127.0.0.1'
+    entries['trace']['ip']['nw_dst'] = '127.0.0.1'
+    entries['trace']['ip']['nw_tos'] = 0
+    entries['trace']['tp']['tp_src'] = 1
+    entries['trace']['tp']['tp_dst'] = 1
+
+    # Starting
+    entries['trace']['switch']['dpid'] = datapath_id
+    entries['trace']['switch']['in_port'] = in_port
+
+    pkt = packet.Packet(packet_in.msg.data)
+    pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
+
+    entries['trace']['eth']['dl_dst'] = pkt_eth.dst
+
+    if pkt_eth.ethertype == ether.ETH_TYPE_8021Q:
+        pkt_vlan = pkt.get_protocols(vlan.vlan)[0]
+        entries['trace']['eth']['dl_vlan'] = pkt_vlan.vid
+
+        if int(pkt_vlan.ethertype) == 2048:
+            pkt_ip = pkt.get_protocols(ipv4.ipv4)[0]
+            entries['trace']['ip']['nw_src'] = pkt_ip.src
+            entries['trace']['ip']['nw_dst'] = pkt_ip.dst
+            entries['trace']['ip']['nw_tos'] = pkt_ip.tos
+
+            if pkt_ip.proto == 6:
+                pkt_tp = pkt.get_protocols(tcp.tcp)[0]
+                entries['trace']['tp']['tp_src'] = pkt_tp.src_port
+                entries['trace']['tp']['tp_dst'] = pkt_tp.dst_port
+
+    entries['trace']['remote_id'] = pkt[-1]
+    # print(entries)
+
+    return entries

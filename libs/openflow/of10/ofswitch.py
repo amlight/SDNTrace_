@@ -6,7 +6,7 @@ from ryu.lib.packet import lldp
 from ryu.lib import ip, addrconv
 from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto.ofproto_v1_0_parser import OFPPhyPort
-from ryu.ofproto.ofproto_v1_0_parser import OFPMatch
+from ryu.ofproto.ofproto_v1_0_parser import OFPMatch, OFPActionOutput
 
 from libs.openflow.ofswitch import OFSwitch
 from libs.openflow.of10.port_helper import get_port_speed
@@ -80,6 +80,30 @@ class OFSwitch10(OFSwitch):
         mac_color = "ee:ee:ee:ee:ee:%s" % int(color, 2)
         self.push_color(OFPMatch(dl_src=mac_color))
 
+    def install_interdomain_color(self, color, in_port, priority):
+        """
+            Prepare to send the FlowMod to install interdomain
+            colored flows
+            Args:
+                color: dl_src to be used
+                in_port: incoming port
+                priority: flow priority
+        """
+        if not isinstance(priority, int):
+            priority = int(priority)
+        if not isinstance(in_port, int):
+            in_port = int(in_port)
+
+        datapath = self.obj.msg.datapath
+        ofproto = datapath.ofproto
+        match = OFPMatch(in_port=in_port, dl_src=color)
+
+        op = ofproto.OFPP_CONTROLLER
+        actions = [datapath.ofproto_parser.OFPActionOutput(op)]
+
+        self.push_flow(datapath, self.cookie, priority,
+                       ofproto.OFPFC_ADD, match, actions)
+
     @staticmethod
     def push_flow(datapath, cookie, priority, command, match, actions,
                   flags=1):
@@ -119,12 +143,12 @@ class OFSwitch10(OFSwitch):
         dp.send_msg(req)
 
     def match_flow(self, in_port, pkt):
-
         for flow in self.flows:
             if self.match(flow.match, pkt, in_port, self.obj.msg.datapath.ofproto):
                 for action in flow.actions:
                     # TODO: test if it is an action output
-                    return action.port
+                    if isinstance(action, OFPActionOutput):
+                        return str(action.port)
         return 0
 
     @staticmethod
@@ -145,7 +169,7 @@ class OFSwitch10(OFSwitch):
                 return False
 
         if not flow.wildcards & ofp.OFPFW_DL_SRC:
-            print('Flow %s, pkt %s' % (flow.dl_src, eth.src))
+            # print('Flow %s, pkt %s' % (flow.dl_src, eth.src))
             if flow.dl_src != addrconv.mac.text_to_bin(eth.src):
                 return False
 
