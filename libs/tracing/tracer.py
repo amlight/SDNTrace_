@@ -4,6 +4,7 @@
 from ryu.lib import hub
 from libs.tracing.trace_pkt import generate_trace_pkt, prepare_next_packet
 from libs.core.rest.tracer import FormatRest
+from libs.tracing.trace_msg import TraceMsg
 
 
 class TracePath(object):
@@ -63,9 +64,7 @@ class TracePath(object):
         for local in locals:
             if local.split(':')[0] == src_switch and int(local.split(':')[1]) == src_port:
                 self.inter_domain = True
-                print(self.init_entries['trace']['remote_id'].split(':')[1])
-                self.remote_request_id = self.init_entries['trace']['remote_id'].split(':')[1]
-                print(self.remote_request_id)
+                self.remote_request_id = self.init_entries['trace']['data']['request_id']
                 break
 
         if self.inter_domain:
@@ -99,23 +98,18 @@ class TracePath(object):
 
         # A loop waiting for trace_ended. It changes to True when reaches timeout
         while not self.trace_ended:
-            # Generate the probe packet
             in_port, probe_pkt = generate_trace_pkt(entries, color, self.id, self.mydomain)
-            # Send Packet out and try to get a PacketIn
             result, packet_in = self.send_trace_probe(switch, in_port, probe_pkt)
-            # If timeout
             if result == 'timeout':
                 # Add last trace step
                 self.rest.add_trace_step(self.trace_result, trace_type='last')
                 print("Intra-Domain Trace Completed!")
                 self.trace_ended = True
-            # If not timeout
             else:
                 self.rest.add_trace_step(self.trace_result, trace_type='trace',
                                          dpid=result['dpid'], port=result['port'])
                 is_loop = self.check_loop()
                 if is_loop:
-                    # If loop, add the loop trace step
                     self.rest.add_trace_step(self.trace_result, trace_type='last',
                                              reason='loop')
                     self.trace_ended = True
@@ -133,8 +127,6 @@ class TracePath(object):
             if out_port in switch.inter_domain_ports.keys():
                 neighbor_conf = switch.inter_domain_ports[out_port]
                 self.trace_interdomain(switch, neighbor_conf, entries, color, in_port)
-                # Set a timer to wait for the
-                #  {"type":"intertrace", "domain":"domainB_name"}
 
         # Add final result to trace_results_queue
         self.obj.trace_results_queue[self.id] = {"request_id": self.id,
@@ -167,19 +159,23 @@ class TracePath(object):
             hub.sleep(0.5)  # Wait 0.5 second before querying for PacketIns
             timeout_control += 1
             # Check if there is any Probe PacketIn in the queue
+            if timeout_control > 3:
+                return 'timeout', False
+
             if len(self.obj.trace_pktIn) is 0:
-                if timeout_control > 2:
-                    return 'timeout', False
-                else:
-                    print('Sending PacketOut Again')
-                    switch.send_packet_out(in_port, probe_pkt.data)
+                print('Sending PacketOut Again')
+                switch.send_packet_out(in_port, probe_pkt.data)
             else:
                 # There are probes in the PacketIn queue
                 for pIn in self.obj.trace_pktIn:
                     # Let's look for one with our self.id
                     # Each entry has the following format:
                     # (pktIn_dpid, pktIn_port, pkt[-1], pkt, ev)
-                    if self.id == int(pIn[2].split(':')[1]):
+                    # packetIn_data_request_id is the request id
+                    # of the packetIn.data.
+                    msg = TraceMsg()
+                    msg.import_data(pIn[2])
+                    if self.id == msg.request_id:
                         self.clear_trace_pkt_in()
                         return {'dpid': pIn[0], "port": pIn[1]}, pIn[4]
 
@@ -188,7 +184,9 @@ class TracePath(object):
             Once the probe PacketIn was processed, delete it from queue
         """
         for pIn in self.obj.trace_pktIn:
-            if self.id == int(pIn[2].split(':')[1]):
+            msg = TraceMsg()
+            msg.import_data(pIn[2])
+            if self.id == msg.request_id:
                 self.obj.trace_pktIn.remove(pIn)
 
     def check_loop(self):
@@ -198,7 +196,6 @@ class TracePath(object):
         i = 0
         last = len(self.trace_result) - 1
         while i < last:
-            # print i, last
             if self.trace_result[i] == self.trace_result[last]:
                 return last
             i += 1
