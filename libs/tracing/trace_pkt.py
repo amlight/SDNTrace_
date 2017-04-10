@@ -1,5 +1,6 @@
 from ryu.lib.packet import ethernet, vlan, packet, ipv4, tcp
 from ryu.ofproto import ether
+from libs.tracing.trace_msg import TraceMsg
 
 
 def prepare_switch(switch, dpid, in_port):
@@ -113,8 +114,10 @@ def generate_trace_pkt(entries, color, r_id, my_domain, interdomain=False):
         tp_pkt = tcp.tcp(dst_port=int(tp_dst), src_port=int(tp_src))
         pkt.add_protocol(tp_pkt)
 
-    data = "%s:%s" % (my_domain, r_id)   # this will be the ID
-    pkt.add_protocol(data)
+    msg = TraceMsg(r_id, my_domain)
+    if interdomain:
+        msg.set_interdomain()
+    pkt.add_protocol(msg.data())
     pkt.serialize()
     return in_port, pkt
 
@@ -133,7 +136,6 @@ def get_vlan_from_pkt(data):
 
 
 def prepare_next_packet(obj, entries, result, ev):
-    #print(result)
     dpid =  result['dpid']
     switch, color = get_node_color_from_dpid(obj.switches, dpid)
 
@@ -151,6 +153,7 @@ def prepare_next_packet(obj, entries, result, ev):
 def generate_entries_from_packet_in(packet_in, datapath_id, in_port):
     """
         Extract the probe msg from a PacketIn.data
+        Only happens for inter-domain traces
     Args:
         packet_in:
 
@@ -192,7 +195,8 @@ def generate_entries_from_packet_in(packet_in, datapath_id, in_port):
                 entries['trace']['tp']['tp_src'] = pkt_tp.src_port
                 entries['trace']['tp']['tp_dst'] = pkt_tp.dst_port
 
-    entries['trace']['remote_id'] = pkt[-1]
-    # print(entries)
+    msg = TraceMsg()
+    msg.import_data(pkt[-1])
+    entries['trace']['data'] = msg.data()
 
     return entries
