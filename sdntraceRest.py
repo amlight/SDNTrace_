@@ -25,7 +25,9 @@ class SDNTraceController(ControllerBase):
     def __init__(self, req, link, data, **config):
         super(SDNTraceController, self).__init__(req, link, data, **config)
         self.sdntrace_app = data[sdntrace_instance_name]
-        self.sdntrace_rest = FormatRest(self.sdntrace_app.switches)
+        self.sdntrace_rest = FormatRest(self.sdntrace_app.switches,
+                                        self.sdntrace_app.links,
+                                        self.sdntrace_app.config_vars)
 
     @route('sdntrace', '/sdntrace/switches', methods=['GET'])
     def print_switches(self, req, **kwargs):
@@ -91,13 +93,7 @@ class SDNTraceController(ControllerBase):
         return Response(content_type='application/json', body=body)
 
     def _topology(self, req, **kwargs):
-        topology = {}
-        for _, switch in self.sdntrace_app.switches.items():
-            neighbors = []
-            for neigh in switch.adjacencies_list:
-                neighbors.append(neigh.name)
-            topology[switch.name] = neighbors
-        body = json.dumps(topology)
+        body = self.sdntrace_rest.get_topology()
         return Response(content_type='application/json', body=body)
 
     def _colors(self, req, **kwargs):
