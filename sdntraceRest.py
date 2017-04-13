@@ -119,6 +119,7 @@ class SDNTraceController(ControllerBase):
         """
         try:
             new_entry = eval(req.body)
+            print(new_entry)
         except Exception as e:
             print('SDNTraceRest Error: %s' % e)
             body = json.dumps({'error': "malformed request %s" % e})

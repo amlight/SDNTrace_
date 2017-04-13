@@ -98,12 +98,13 @@ class SDNTrace(app_manager.RyuApp):
                 try:
                     r_ids = []
                     for r_id in self.trace_request_queue:
+                        print(r_id)
                         hub.spawn(self.spawn_trace(r_id))
                         r_ids.append(r_id)
                     for rid in r_ids:
                         del self.trace_request_queue[rid]
                 except Exception as e:
-                    print("Error %s" % e)
+                    print("Trace Error: %s" % e)
             hub.sleep(self.config_vars['trace']['run_trace_interval'])
 
     def get_all_flows(self):
@@ -251,6 +252,7 @@ class SDNTrace(app_manager.RyuApp):
             trace_type, pkt = tracing.process_probe_packet(ev, result, in_port,
                                                            self.config_vars,
                                                            switch)
+            print trace_type
             if trace_type is 'Intra' and pkt is not False:
                 # This list is store all PacketIn message received
                 self.trace_pktIn.append(pkt)
@@ -360,5 +362,6 @@ class SDNTrace(app_manager.RyuApp):
         """
         print("Creating thread to trace request id %s..." % rid)
         tracer = TracePath(self, rid, self.trace_request_queue[rid])
+        print('here')
         tracer.initial_validation()
         return tracer.tracepath
