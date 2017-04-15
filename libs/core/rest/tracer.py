@@ -14,11 +14,12 @@ class FormatRest:
         time_diff = self.current_time() - self.start_time
         return str(time_diff) if to_str else time_diff
 
-    def add_trace_step(self, trace_result, trace_type, reason='done', dpid=None,
-                       port=None, msg="none"):
+    def add_trace_step(self, trace_result, trace_type, reason='done',
+                       dpid=None, port=None, msg="none"):
         """
-            Used to define the new REST interface. Use docs/trace_results.txt for
-                examples. Only this method should write to self.trace_result
+            Used to define the new REST interface.
+                Use docs/trace_results.txt  for examples.
+                Only this method should write to self.trace_result
             Args:
                 trace_result: variable with results
                 trace_type: type of trace
@@ -32,7 +33,10 @@ class FormatRest:
         # Get port name instead of port_no
         if dpid:
             new_switch = self.obj.get_switch(dpid, by_name=True)
-            port_name = new_switch.ports[port]["name"]
+            try:
+                port_name = new_switch.ports[port]["name"]
+            except:
+                raise Exception('Restart Mininet: port Disappeared ')
 
         if trace_type == 'starting':
             step["dpid"] = new_switch.name

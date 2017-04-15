@@ -63,7 +63,6 @@ class TracePath(object):
         for local in locals:
             if local.split(':')[0] == src_switch and int(local.split(':')[1]) == src_port:
                 self.inter_domain = True
-                print self.init_entries
                 try:
                     # if a trace starts in an inter-domain port but it is a intra test
                     # there is no request id
@@ -162,7 +161,6 @@ class TracePath(object):
         while True:
             hub.sleep(0.5)  # Wait 0.5 second before querying for PacketIns
             timeout_control += 1
-            print(timeout_control, len(self.obj.trace_pktIn))
             # Check if there is any Probe PacketIn in the queue
             if timeout_control > 3:
                 return 'timeout', False
@@ -173,7 +171,6 @@ class TracePath(object):
             else:
                 # There are probes in the PacketIn queue
                 for pIn in self.obj.trace_pktIn:
-                    print('packetIn')
                     # Let's look for one with our self.id
                     # Each entry has the following format:
                     # (pktIn_dpid, pktIn_port, pkt[-1], pkt, ev)
@@ -181,7 +178,6 @@ class TracePath(object):
                     # of the packetIn.data.
                     msg = TraceMsg()
                     msg.import_data(pIn[2])
-                    print(msg)
                     if self.id == msg.request_id:
                         self.clear_trace_pkt_in()
                         return {'dpid': pIn[0], "port": pIn[1]}, pIn[4]
