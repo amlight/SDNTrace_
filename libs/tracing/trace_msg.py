@@ -195,13 +195,13 @@ class TraceMsg(object):
                                                'timestamp': self.get_timestamp(label='str')}}
         self.type = 'inter'
 
+
 class Path(object):
     """
         This class is used just to validate the inter_path from
         class TraceMsg
         It is not instantiate by any other class
     """
-
     def __init__(self, domain, compare_domain=False):
         self._path = None
         self.compare_domain = compare_domain
@@ -229,7 +229,7 @@ class Path(object):
         """
             Look for a single {'name':'number'}
             Args:
-                path: expected to be a dict with {'name':'number'}
+                domain: expected to be a dict with {'name':'number'}
             Returns:
                 True: correct path format
                 False: incorrect path format
@@ -257,7 +257,8 @@ class Path(object):
             return True
         return False
 
-    def add_time(self, values):
+    @staticmethod
+    def add_time(values):
         """
             Convert the "request_id number" in {'name':'number'}
             to a new dict with timestamp. Final result:

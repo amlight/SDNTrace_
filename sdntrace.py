@@ -18,8 +18,8 @@ from libs.core.read_config import read_config
 from libs.openflow.new_switch import new_switch
 from libs.tracing import tracing
 from libs.tracing.trace_pkt import generate_entries_from_packet_in
-from libs.tracing.tracer import TracePath
 from libs.coloring.links import Links
+from libs.tracing.trace_manager import TraceManager
 
 
 # Used to get the configuration file
@@ -43,17 +43,14 @@ class SDNTrace(app_manager.RyuApp):
         # Threads
         self.topo_disc = hub.spawn(self._topology_discovery)
         self.push_colors = hub.spawn(self._push_colors)
-        self.tracing = hub.spawn(self._run_traces)
         self.flows = hub.spawn(self.get_all_flows)
-        # Traces
-        self.trace_results_queue = dict()  # Pending Requested Traces
-        self.trace_request_queue = dict()  # Trace results
-        self.request_id = 80000  # Used for Packet-In generated traces
         self.trace_pktIn = []  # list of received PacketIn non LLDP
         # Other variables
         self.config_vars = read_config(CONF.trace_config)  # Read configuration
         self.print_ready = False  # Just to print System Ready once
 
+        # Trace_Manager
+        self.tracer = TraceManager(self, self.config_vars)
 
     # Auxiliary Threads
     def _topology_discovery(self):
@@ -87,24 +84,6 @@ class SDNTrace(app_manager.RyuApp):
                 if len(self.links) is not 0:
                     self.install_colored_flows()
             hub.sleep(self.config_vars['trace']['push_color_interval'])
-
-    def _run_traces(self):
-        """
-            Reads the trace_request_queue queue for new requests
-            Once a request is found, creates a thread to process it
-        """
-        while True:
-            if len(self.trace_request_queue) > 0:
-                try:
-                    r_ids = []
-                    for r_id in self.trace_request_queue:
-                        hub.spawn(self.spawn_trace(r_id))
-                        r_ids.append(r_id)
-                    for rid in r_ids:
-                        del self.trace_request_queue[rid]
-                except Exception as e:
-                    print("Trace Error: %s" % e)
-            hub.sleep(self.config_vars['trace']['run_trace_interval'])
 
     def get_all_flows(self):
         """
@@ -257,13 +236,15 @@ class SDNTrace(app_manager.RyuApp):
             elif trace_type is 'Inter':
                 print('Inter-domain probe received')
                 # Convert pkt.data to entries
-                new_entries = generate_entries_from_packet_in(ev, switch.datapath_id,
+                new_entries = generate_entries_from_packet_in(ev,
+                                                              switch.datapath_id,
                                                               in_port)
                 print('packet_in_handler - new_entries')
                 print(new_entries)
                 # add new_entries to the trace_request_queue
-                r_id = self.get_request_id()
-                self.trace_request_queue[r_id] = new_entries
+                #r_id = self.get_request_id()
+                #self.trace_request_queue[r_id] = new_entries
+                self.tracer.new_trace(new_entries)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
     def openflow_error(self, ev):
@@ -346,21 +327,3 @@ class SDNTrace(app_manager.RyuApp):
             del neighbor_colors
             switch.old_color = switch.color
         self.old_colors = self.colors
-
-    def get_request_id(self):
-        self.request_id += 1
-        return self.request_id
-
-    def spawn_trace(self, rid):
-        """
-            Once a request is found by the _run_traces method,
-            instantiate a TracePath class and runs the tracepath
-            Args:
-                rid: trace request id
-            Returns:
-                tracer.tracepath
-        """
-        print("Creating thread to trace request id %s..." % rid)
-        tracer = TracePath(self, rid, self.trace_request_queue[rid])
-        tracer.initial_validation()
-        return tracer.tracepath
