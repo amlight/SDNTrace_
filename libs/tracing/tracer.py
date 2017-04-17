@@ -97,6 +97,7 @@ class TracePath(object):
                 self.trace_interdomain(switch, neighbor_conf, entries, color, in_port)
 
         # Add final result to trace_results_queue
+        # if inter_domain, add a status to the result, f. i, 'running'
         t_result = {"request_id": self.id, "result": self.trace_result,
                     "start_time": str(self.rest.start_time),
                     "total_time": self.rest.get_time()}

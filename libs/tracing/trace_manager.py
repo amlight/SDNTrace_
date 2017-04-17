@@ -1,6 +1,8 @@
 """
     Trace Manager Class
 """
+import urllib2
+import json
 from ryu.lib import hub
 from libs.tracing.tracer import TracePath
 
@@ -116,7 +118,6 @@ class TraceManager(object):
         """
         print('add_inter_result')
         print(new_entry)
-
         interdomain = new_entry[0]
         other_entries = new_entry[1]
 
@@ -156,8 +157,10 @@ class TraceManager(object):
             result: trace result generated using ./libs/core/rest/tracer
         """
         self._results_queue[trace_id] = result
-        # TODO: upload interdomain result
-        # self.upload_trace_interdomain()
+
+        remote_id, service = self.get_service_from_active_queue(trace_id)
+        if service is not 0:
+            self.upload_trace_interdomain(trace_id, remote_id, service)
 
     def add_to_active_traces(self, trace_id, entries):
         """
@@ -266,6 +269,23 @@ class TraceManager(object):
         """
         return self._results_queue
 
+    def get_service_from_active_queue(self, trace_id):
+        """
+            If trace_id is an inter, return the remote_id
+            and the service
+            Args:
+                trace_id: trace ID
+            Returns:
+                remote_id and service
+        """
+        remote_id = 0
+        service = 0
+        trace_type = self._active_traces[trace_id]['type']
+        if trace_type is 'inter':
+            remote_id = self._active_traces[trace_id]['remote_id']
+            service = self._active_traces[trace_id]['service']
+        return remote_id, service
+
     def get_service_from_config(self, domain):
         """
             Get the service URL of a specif domain
@@ -300,26 +320,24 @@ class TraceManager(object):
         self._request_queue[trace_id] = entries
         return trace_id
 
-    def upload_trace_interdomain(self, remote, ):
+    def upload_trace_interdomain(self, local_id, remote_id, service):
         """
-
-        Args:
-            remote:
-            trace_result:
-
-        Returns:
-
+            If trace is interdomain, upload results to the source
+            Args:
+                local_id: trace ID of the intra domain
+                remote_id: remote trace ID
+                service: service URL
         """
         print('Uploading Inter-domain Trace Results')
+        print(self.get_result(local_id))
         final_result = []
-        final_result.append({"type": "intertrace", "domain": self.mydomain,
-                             "request_id": self.remote_request_id})
-        final_result.append(self.trace_mgr.get_result(self.id))
+        final_result.append({"type": "intertrace", "domain": self._my_domain,
+                             "request_id": remote_id})
+        final_result.append(self.get_result(local_id))
 
         # Now upload
-        import urllib2, json
         opener = urllib2.build_opener(urllib2.HTTPHandler)
-        request = urllib2.Request(remote, data=json.dumps(final_result))
+        request = urllib2.Request(service, data=json.dumps(final_result))
         request.add_header('Content-Type', 'application/json')
         request.get_method = lambda: 'PUT'
         url = opener.open(request)
