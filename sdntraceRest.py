@@ -106,8 +106,7 @@ class SDNTraceController(ControllerBase):
     def _get_trace(self, req, **kwargs):
         trace_id = kwargs['trace_id']
         trace_id = trace_id.encode('ascii')
-        body = "0"
-        print("trace_id received: %r" % trace_id)
+        body = "{}"
         for trace in self.sdntrace_app.trace_results_queue:
             if trace == int(trace_id):
                 body = json.dumps(self.sdntrace_app.trace_results_queue[trace])

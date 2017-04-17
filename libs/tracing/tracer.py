@@ -34,7 +34,6 @@ class TracePath(object):
         self.trace_ended = False
         self.init_switch = None
         self.rest = FormatRest(self.obj)
-
         # Support for inter-domain
         self.inter_domain = False
         self.remote_server = False
@@ -64,9 +63,13 @@ class TracePath(object):
         for local in locals:
             if local.split(':')[0] == src_switch and int(local.split(':')[1]) == src_port:
                 self.inter_domain = True
-                self.remote_request_id = self.init_entries['trace']['data']['request_id']
+                try:
+                    # if a trace starts in an inter-domain port but it is a intra test
+                    # there is no request id
+                    self.remote_request_id = self.init_entries['trace']['data']['request_id']
+                except:
+                    self.inter_domain = False
                 break
-
         if self.inter_domain:
             neighbors = self.obj.config_vars['inter-domain']['neighbors'].split(',')
             for neighbor in neighbors:

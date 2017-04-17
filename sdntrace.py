@@ -103,7 +103,7 @@ class SDNTrace(app_manager.RyuApp):
                     for rid in r_ids:
                         del self.trace_request_queue[rid]
                 except Exception as e:
-                    print("Error %s" % e)
+                    print("Trace Error: %s" % e)
             hub.sleep(self.config_vars['trace']['run_trace_interval'])
 
     def get_all_flows(self):
@@ -259,6 +259,8 @@ class SDNTrace(app_manager.RyuApp):
                 # Convert pkt.data to entries
                 new_entries = generate_entries_from_packet_in(ev, switch.datapath_id,
                                                               in_port)
+                print('packet_in_handler - new_entries')
+                print(new_entries)
                 # add new_entries to the trace_request_queue
                 r_id = self.get_request_id()
                 self.trace_request_queue[r_id] = new_entries
