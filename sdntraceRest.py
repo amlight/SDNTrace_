@@ -7,7 +7,6 @@ from libs.core.rest.queries import FormatRest
 
 
 sdntrace_instance_name = 'sdntrace_api_app'
-#request_id = 80000
 
 
 class SDNTraceRest(sdntrace.SDNTrace):
@@ -28,6 +27,7 @@ class SDNTraceController(ControllerBase):
         self.sdntrace_rest = FormatRest(self.sdntrace_app.switches,
                                         self.sdntrace_app.links,
                                         self.sdntrace_app.config_vars)
+        self.sdntrace_trace = self.sdntrace_app.tracer
 
     @route('sdntrace', '/sdntrace/switches', methods=['GET'])
     def print_switches(self, req, **kwargs):
@@ -106,36 +106,32 @@ class SDNTraceController(ControllerBase):
     def _get_trace(self, req, **kwargs):
         trace_id = kwargs['trace_id']
         trace_id = trace_id.encode('ascii')
-        body = "{}"
-        for trace in self.sdntrace_app.trace_results_queue:
-            if trace == int(trace_id):
-                body = json.dumps(self.sdntrace_app.trace_results_queue[trace])
+        result = self.sdntrace_trace.get_result(trace_id)
+        if result == 0:
+            msg = "Error: Trace ID not found: %s" % trace_id
+            error = {'result': {'error': msg}}
+            body = json.dumps(error)
+        else:
+            body = json.dumps(result)
         return Response(content_type='application/json', body=body)
 
     def _trace(self, req, **kwargs):
         """
             Trace method.
         """
-        try:
-            new_entry = eval(req.body)
-        except Exception as e:
-            print('SDNTraceRest Error: %s' % e)
-            body = json.dumps({'error': "malformed request %s" % e})
-            return Response(content_type='application/json', body=body, status=500)
-
         nodes_app = self.sdntrace_app
         try:
+            new_entry = eval(req.body)
+
             if not nodes_app.print_ready:
                 body = json.dumps("SDNTrace: System Not Ready Yet!")
                 return Response(content_type='application/json', body=body)
 
-            # First, generate an ID to be send back to user
-            # This ID will be used as the data in the packet
-            #global request_id
-            request_id = self.sdntrace_app.get_request_id()
-            # Add to the tracing queue
-            nodes_app.trace_request_queue[request_id] = new_entry
-            body = json.dumps({'request_id': request_id})
+            request_id = self.sdntrace_trace.new_trace(new_entry)
+            if request_id == 0:
+                body = json.dumps({'error': 'invalid entry provided'})
+            else:
+                body = json.dumps({'request_id': request_id})
             return Response(content_type='application/json', body=body)
 
         except Exception as e:
@@ -155,32 +151,12 @@ class SDNTraceController(ControllerBase):
         print("Inter-domain SDNTrace updates")
         try:
             new_entry = eval(req.body)
-            interdomain = new_entry[0]
-            other_entries = new_entry[1]
+        #    interdomain = new_entry[0]
+        #    other_entries = new_entry[1]
 
         except Exception as e:
             print('SDNTraceRest Error: %s' % e)
             body = json.dumps({'error': "malformed request %s" % e})
             return Response(content_type='application/json', body=body, status=500)
 
-        trace_id = int(new_entry[0]['request_id'])
-        trace_results = self.sdntrace_app.trace_results_queue[trace_id]
-
-        new_results = dict()
-        new_results['start_time'] = trace_results['start_time']
-        new_results['request_id'] = trace_results['request_id']
-
-        tmp_result = []
-        for result in trace_results['result']:
-            if result['type'] != 'last':
-                tmp_result.append(result)
-            elif result['type'] == 'last':
-                tmp_result.append(interdomain)
-                for entry in other_entries['result']:
-                    if entry['type'] in ['trace', 'starting']:
-                        tmp_result.append(entry)
-                tmp_result.append(result)
-
-        new_results['result'] = tmp_result
-
-        self.sdntrace_app.trace_results_queue[trace_id] = new_results
+        self.sdntrace_trace.add_inter_result(new_entry)
