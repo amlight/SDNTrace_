@@ -126,7 +126,7 @@ class TracePath(object):
             hub.sleep(0.5)  # Wait 0.5 second before querying for PacketIns
             timeout_control += 1
             # Check if there is any Probe PacketIn in the queue
-            if timeout_control > 3:
+            if timeout_control >= 3:
                 return 'timeout', False
 
             if len(self.obj.trace_pktIn) is 0:

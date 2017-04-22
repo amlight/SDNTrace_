@@ -1,4 +1,10 @@
 
+On the mininet server, set the PTYHONPATH:
+
+PYTHONPATH=~/mininet/mininet
+
+
+
 Open two sessions of the Mininet server
 
 In one, run the interdomain.py

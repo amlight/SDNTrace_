@@ -1,5 +1,5 @@
 from functools import wraps
-DEBUGGING=True
+DEBUGGING=False
 
 
 def debug(func):

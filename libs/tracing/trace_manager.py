@@ -118,8 +118,6 @@ class TraceManager(object):
         Args:
             new_entry: full result received
         """
-        print('add_inter_result')
-        print(new_entry)
         interdomain = new_entry[0]
         other_entries = new_entry[1]
 
@@ -335,7 +333,6 @@ class TraceManager(object):
         """
         print('Uploading Inter-domain Trace Results')
         if forward is None:
-            print(self.get_result(local_id))
             final_result = []
             final_result.append({"type": "intertrace", "domain": self._my_domain,
                                  "request_id": remote_id})
