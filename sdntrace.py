@@ -20,6 +20,7 @@ from libs.tracing import tracing
 from libs.tracing.trace_pkt import generate_entries_from_packet_in
 from libs.coloring.links import Links
 from libs.tracing.trace_manager import TraceManager
+from libs.core.singleton import Singleton
 
 
 # Used to get the configuration file
@@ -30,6 +31,8 @@ CONF.register_opts([cfg.StrOpt('trace_config')])
 
 
 class SDNTrace(app_manager.RyuApp):
+
+    __metaclass__ = Singleton
 
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION, ofproto_v1_3.OFP_VERSION]
 

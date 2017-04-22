@@ -5,8 +5,10 @@ import urllib2
 import json
 from ryu.lib import hub
 from libs.tracing.tracer import TracePath
+from libs.core.debugging import debugclass
 
 
+@debugclass
 class TraceManager(object):
     """
         The TraceManager class is the app responsible to
@@ -144,9 +146,9 @@ class TraceManager(object):
 
         new_results['result'] = tmp_result
 
-        self.add_result(trace_id, new_results)
+        self.add_result(trace_id, new_results, forward=new_entry)
 
-    def add_result(self, trace_id, result):
+    def add_result(self, trace_id, result, forward=None):
         """
             Used by the tracer to upload results to the queue
             This method receives the results and, if inter-domain,
@@ -160,7 +162,10 @@ class TraceManager(object):
 
         remote_id, service = self.get_service_from_active_queue(trace_id)
         if service is not 0:
-            self.upload_trace_interdomain(trace_id, remote_id, service)
+            if forward is not None:
+                self.upload_trace_interdomain(trace_id, remote_id, service, forward=forward)
+            else:
+                self.upload_trace_interdomain(trace_id, remote_id, service)
 
     def add_to_active_traces(self, trace_id, entries):
         """
@@ -320,7 +325,7 @@ class TraceManager(object):
         self._request_queue[trace_id] = entries
         return trace_id
 
-    def upload_trace_interdomain(self, local_id, remote_id, service):
+    def upload_trace_interdomain(self, local_id, remote_id, service, forward=None):
         """
             If trace is interdomain, upload results to the source
             Args:
@@ -329,11 +334,14 @@ class TraceManager(object):
                 service: service URL
         """
         print('Uploading Inter-domain Trace Results')
-        print(self.get_result(local_id))
-        final_result = []
-        final_result.append({"type": "intertrace", "domain": self._my_domain,
-                             "request_id": remote_id})
-        final_result.append(self.get_result(local_id))
+        if forward is None:
+            print(self.get_result(local_id))
+            final_result = []
+            final_result.append({"type": "intertrace", "domain": self._my_domain,
+                                 "request_id": remote_id})
+            final_result.append(self.get_result(local_id))
+        else:
+            final_result = forward
 
         # Now upload
         opener = urllib2.build_opener(urllib2.HTTPHandler)

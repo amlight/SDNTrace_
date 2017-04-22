@@ -16,7 +16,14 @@ def read_config(config_file='./conf/sdntrace.conf'):
     """
 
     """
+
     config = ConfigParser.ConfigParser()
+    try:
+        with open(config_file) as f:
+            config.readfp(f)
+    except Exception as err:
+        print err
+
     # TODO: Generate exception if file is not found
     config.read(config_file)
     sections = dict()
