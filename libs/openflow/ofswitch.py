@@ -307,7 +307,8 @@ class OFSwitch(object):
             neighbors = self.config_vars['inter-domain']['neighbors'].split(',')
             for neighbor in neighbors:
                 neighbor_conf = self.config_vars[neighbor]
-                local_port = neighbor_conf['local'].split(':')[1]
-                self.inter_domain_ports[local_port] = neighbor_conf
-                prio = self.config_vars['inter-domain']['priority']
-                self.install_interdomain_color(my_color, local_port, prio)
+                local_dpid, local_port = neighbor_conf['local'].split(':')
+                if local_dpid == self.datapath_id:
+                    self.inter_domain_ports[local_port] = neighbor_conf
+                    prio = self.config_vars['inter-domain']['priority']
+                    self.install_interdomain_color(my_color, local_port, prio)
