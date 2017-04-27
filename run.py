@@ -1,6 +1,8 @@
-import sys, argparse
+import sys
+import argparse
 from ryu.cmd import manager
 from libs.core.read_config import read_config
+from libs.core.config_reader import ConfigReader
 
 
 def cli():
@@ -35,7 +37,7 @@ def load_ryu_options(app, conf_file, verbose, listen_port, wsgi_port, log_file):
     options.append('--config-file')
     options.append(conf_file)
 
-    return (options)
+    return options
 
 
 def get_params(app):
@@ -43,7 +45,7 @@ def get_params(app):
     configs = read_config(args.config_file)
     try:
         log_file = configs['ryu']['log_file']
-    except:
+    except KeyError:
         log_file = None
     params = load_ryu_options(app, args.config_file, args.verbose,
                               configs['ryu']['listen_port'],
@@ -56,9 +58,9 @@ def main():
     args = get_params(app='sdntraceRest.py')
     manager.main(args=args)
 
+
 if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
         sys.exit(0)
-

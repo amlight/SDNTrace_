@@ -331,7 +331,7 @@ class TraceManager(object):
                 remote_id: remote trace ID
                 service: service URL
         """
-        print('Uploading Inter-domain Trace Results')
+        print('Uploading Inter-domain Trace Results...'),
         if forward is None:
             final_result = []
             final_result.append({"type": "intertrace", "domain": self._my_domain,
@@ -346,4 +346,4 @@ class TraceManager(object):
         request.add_header('Content-Type', 'application/json')
         request.get_method = lambda: 'PUT'
         url = opener.open(request)
-        print('Upload completed')
+        print(' done!')
