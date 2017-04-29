@@ -95,3 +95,4 @@ ENV/
 *.xml
 *.iml
 .idea/workspace.xml
+*.log

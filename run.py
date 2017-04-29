@@ -1,7 +1,6 @@
 import sys
 import argparse
 from ryu.cmd import manager
-from libs.core.read_config import read_config
 from libs.core.config_reader import ConfigReader
 
 
@@ -32,7 +31,7 @@ def load_ryu_options(app, verbose, configs):
 
     if configs.general.logfile:
         options.append('--log-file')
-        options.append(configs.general.log_file)
+        options.append(configs.general.logfile)
 
     options.append('--config-file')
     options.append(configs.config_file)
@@ -49,7 +48,6 @@ def get_params(app):
 
 def main():
     args = get_params(app='sdntraceRest.py')
-    print(args)
     manager.main(args=args)
 
 

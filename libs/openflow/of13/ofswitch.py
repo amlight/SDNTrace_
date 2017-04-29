@@ -7,6 +7,7 @@ from ryu.lib import ip, mac
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3_parser import OFPMatch
 
+from libs.core.config_reader import ConfigReader
 from libs.openflow.ofswitch import OFSwitch
 from libs.openflow.of13.port_helper import get_port_speed
 
@@ -16,8 +17,8 @@ class OFSwitch13(OFSwitch):
         Used to keep track of each node
         This object is used in the SDNTrace.switches
     """
-    def __init__(self, ev, config_vars):
-        OFSwitch.__init__(self, ev, config_vars)
+    def __init__(self, ev):
+        OFSwitch.__init__(self, ev)
         self.version = ofproto_v1_3.OFP_VERSION
         self.prepare_default_flow()
         self.request_initial_description()
@@ -59,7 +60,7 @@ class OFSwitch13(OFSwitch):
         """
         match = OFPMatch(eth_dst=lldp.LLDP_MAC_NEAREST_BRIDGE,
                          eth_type=ether.ETH_TYPE_LLDP,
-                         vlan_vid=self.config_vars['topo_discovery']['vlan_discovery'] |
+                         vlan_vid=self.config.topo.vlan_discovery |
                          ofproto_v1_3.OFPVID_PRESENT)
         self.add_default_flow(match)
 

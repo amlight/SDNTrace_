@@ -3,6 +3,7 @@
 """
 from ryu.ofproto import ether
 from ryu.lib.packet import packet, lldp, ethernet, vlan
+from libs.core.config_reader import ConfigReader
 from libs.openflow.port_speed import get_speed_name
 from libs.coloring.links import Link
 
@@ -12,7 +13,7 @@ class OFSwitch(object):
         Used to keep track of each node
         This object is used in the SDNTrace.switches
     """
-    def __init__(self, ev, config_vars):
+    def __init__(self, ev):
         self.obj = ev
         self.dpid = self.obj.msg.datapath_id
         self.ports = dict()
@@ -28,7 +29,7 @@ class OFSwitch(object):
         # self.delete_colored_flows()
         self.clear_start = False
         # To avoid issues when deleting flows
-        self.config_vars = config_vars
+        self.config = ConfigReader()
         # set cookie
         self.cookie = None
         self.set_cookie()
@@ -90,7 +91,7 @@ class OFSwitch(object):
 
         """
         # TODO: It is not 100% yet.
-        min_cookie_id = self.config_vars['openflow']['minimum_cookie_id']
+        min_cookie_id = self.config.openflow.min_cookie
         self.cookie = min_cookie_id + 1
         self.cookie += 1
 
@@ -211,7 +212,7 @@ class OFSwitch(object):
             match = parser.OFPMatch(eth_src=mac_color)
 
         flags = 0
-        flow_prio = self.config_vars['trace']['flow_priority']
+        flow_prio = self.config.trace.flow_priority
         self.push_flow(datapath, self.cookie, flow_prio,
                        ofproto.OFPFC_DELETE_STRICT,
                        match, actions, flags)
@@ -229,7 +230,7 @@ class OFSwitch(object):
         op = ofproto.OFPP_CONTROLLER
         actions = [datapath.ofproto_parser.OFPActionOutput(op)]
 
-        flow_prio = self.config_vars['trace']['flow_priority']
+        flow_prio = self.config.trace.flow_priority
         self.push_flow(datapath, self.cookie, flow_prio,
                        ofproto.OFPFC_ADD, match, actions)
 
@@ -297,18 +298,15 @@ class OFSwitch(object):
             will come from the [inter-domain] section
         """
         # Check if this switch has neighbors
-        locals = self.config_vars['inter-domain']['locals'].split(',')
-        for local in locals:
-            if local.split(':')[0] == self.datapath_id:
-                self.is_inter_domain = True
-
+        self.is_inter_domain = self.config.interdomain.is_interdomain(self.datapath_id)
         if self.is_inter_domain:
-            my_color = self.config_vars['inter-domain']['color'].split(',')[1]
-            neighbors = self.config_vars['inter-domain']['neighbors'].split(',')
+            my_color = self.config.interdomain.color_value
+            neighbors = self.config.interdomain.neighbors
             for neighbor in neighbors:
-                neighbor_conf = self.config_vars[neighbor]
-                local_dpid, local_port = neighbor_conf['local'].split(':')
+                local_dpid = self.config.interdomain.get_local_sw(neighbor)
+                local_port = self.config.interdomain.get_local_port(neighbor)
                 if local_dpid == self.datapath_id:
+                    neighbor_conf = self.config.interdomain.get_neighbor_conf(neighbor)
                     self.inter_domain_ports[local_port] = neighbor_conf
-                    prio = self.config_vars['inter-domain']['priority']
+                    prio = self.config.interdomain.priority
                     self.install_interdomain_color(my_color, local_port, prio)

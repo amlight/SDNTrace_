@@ -17,8 +17,8 @@ class OFSwitch10(OFSwitch):
         Used to keep track of each node
         This object is used in the SDNTrace.switches
     """
-    def __init__(self, ev, config_vars):
-        OFSwitch.__init__(self, ev, config_vars)
+    def __init__(self, ev):
+        OFSwitch.__init__(self, ev)
         self.version = ofproto_v1_0.OFP_VERSION
         self.ports = self._extract_ports()
         self.prepare_default_flow()
@@ -68,7 +68,7 @@ class OFSwitch10(OFSwitch):
         """
         match = OFPMatch(dl_dst=lldp.LLDP_MAC_NEAREST_BRIDGE,
                          dl_type=ether.ETH_TYPE_LLDP,
-                         dl_vlan=self.config_vars['topo_discovery']['vlan_discovery'])
+                         dl_vlan=self.config.topo.vlan_discovery)
         self.add_default_flow(match)
 
     def install_color(self, color):
