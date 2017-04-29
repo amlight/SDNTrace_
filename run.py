@@ -17,45 +17,39 @@ def cli():
     return parser.parse_args()
 
 
-def load_ryu_options(app, conf_file, verbose, listen_port, wsgi_port, log_file):
+def load_ryu_options(app, verbose, configs):
     options = list()
     options.append(app)
 
-    if verbose in ('warning', 'debug'):
+    if verbose in ('warning', 'debug') or configs.general.debug is True:
         options.append('--verbose')
         options.append('--enable-debugger')
 
     options.append('--ofp-tcp-listen-port')
-    options.append(listen_port)
+    options.append(configs.ryu.listen_port)
     options.append('--wsapi-port')
-    options.append(wsgi_port)
+    options.append(configs.ryu.wsgi_port)
 
-    if log_file:
+    if configs.general.logfile:
         options.append('--log-file')
-        options.append(log_file)
+        options.append(configs.general.log_file)
 
     options.append('--config-file')
-    options.append(conf_file)
+    options.append(configs.config_file)
 
     return options
 
 
 def get_params(app):
     args = cli()
-    configs = read_config(args.config_file)
-    try:
-        log_file = configs['ryu']['log_file']
-    except KeyError:
-        log_file = None
-    params = load_ryu_options(app, args.config_file, args.verbose,
-                              configs['ryu']['listen_port'],
-                              configs['ryu']['wsgi_port'],
-                              log_file)
+    configs = ConfigReader(args.config_file)
+    params = load_ryu_options(app, args.verbose, configs)
     return params
 
 
 def main():
     args = get_params(app='sdntraceRest.py')
+    print(args)
     manager.main(args=args)
 
 

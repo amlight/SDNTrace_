@@ -162,7 +162,7 @@ class InterdomainConfig:
     MY_DOMAIN = 'local'
     PRIORITY = TraceConfig.FLOW_PRIORITY + 1
     COLOR_FIELD = TraceConfig.COLOR_FIELD
-    COLOR = 'ee:ee:ee:11:11:11'
+    COLOR_VALUE = 'ee:ee:ee:11:11:11'
     NEIGHBORS = None
     LOCALS = []
 
@@ -174,4 +174,4 @@ class InterdomainConfig:
                                    default=self.PRIORITY)
         self.color_field = get_config(config, 'color_field',
                                       default=self.COLOR_FIELD)
-        self.color = get_config(config, 'color', default=self.COLOR)
+        self.color = get_config(config, 'color_value', default=self.COLOR_VALUE)
