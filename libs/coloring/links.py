@@ -1,3 +1,4 @@
+from libs.core.singleton import Singleton
 
 
 class Link:
@@ -45,6 +46,8 @@ class Link:
 
 
 class Links:
+
+    __metaclass__ = Singleton
 
     def __init__(self):
         self.links = []

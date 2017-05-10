@@ -2,7 +2,6 @@
     This is the core of the SDNTrace
     Here all OpenFlow events are received and handled
 """
-from ryu import cfg
 from ryu import utils
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -14,25 +13,15 @@ from ryu.ofproto import ofproto_v1_0, ofproto_v1_3
 from ryu.topology import event
 
 from libs.coloring.auxiliary import prepare_lldp_packet, define_colors
-from libs.core.read_config import read_config
 from libs.openflow.new_switch import new_switch
 from libs.tracing import tracing
 from libs.tracing.trace_pkt import generate_entries_from_packet_in
 from libs.coloring.links import Links
 from libs.tracing.trace_manager import TraceManager
-from libs.core.singleton import Singleton
-
-
-# Used to get the configuration file
-# entry trace_config in the config file provided
-# by the user
-CONF = cfg.CONF
-CONF.register_opts([cfg.StrOpt('trace_config')])
+from libs.core.config_reader import ConfigReader
 
 
 class SDNTrace(app_manager.RyuApp):
-
-    __metaclass__ = Singleton
 
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION, ofproto_v1_3.OFP_VERSION]
 
@@ -49,11 +38,11 @@ class SDNTrace(app_manager.RyuApp):
         self.flows = hub.spawn(self.get_all_flows)
         self.trace_pktIn = []  # list of received PacketIn non LLDP
         # Other variables
-        self.config_vars = read_config(CONF.trace_config)  # Read configuration
+        self.config = ConfigReader()
         self.print_ready = False  # Just to print System Ready once
 
         # Trace_Manager
-        self.tracer = TraceManager(self, self.config_vars)
+        self.tracer = TraceManager(self)
 
     # Auxiliary Threads
     def _topology_discovery(self):
@@ -63,7 +52,7 @@ class SDNTrace(app_manager.RyuApp):
             Args:
                 self
         """
-        vlan = self.config_vars['topo_discovery']['vlan_discovery']
+        vlan = self.config.topo.vlan_discovery
         while True:
             # Only send PacketOut + LLDP when more than one switch exists
             if len(self.switches) > 1:
@@ -71,7 +60,7 @@ class SDNTrace(app_manager.RyuApp):
                     for port in switch.ports:
                         pkt = prepare_lldp_packet(switch, port, vlan)
                         switch.send_packet_out(port, pkt.data, lldp=True)
-            hub.sleep(self.config_vars['topo_discovery']['packet_out_interval'])
+            hub.sleep(self.config.topo.packet_out_interval)
 
     def _push_colors(self):
         """
@@ -86,7 +75,7 @@ class SDNTrace(app_manager.RyuApp):
             if len(self.switches) > 1:
                 if len(self.links) is not 0:
                     self.install_colored_flows()
-            hub.sleep(self.config_vars['trace']['push_color_interval'])
+            hub.sleep(self.config.trace.push_color_interval)
 
     def get_all_flows(self):
         """
@@ -94,9 +83,9 @@ class SDNTrace(app_manager.RyuApp):
 
         """
         while True:
-            for s in self.switches.values():
-                s.get_flows()
-            hub.sleep(self.config_vars['statistics']['flowstats_interval'])
+            for switch in self.switches.values():
+                switch.get_flows()
+            hub.sleep(self.config.stats.flowstats_interval)
 
     # Main thread
     def add_switch(self, ev):
@@ -105,7 +94,7 @@ class SDNTrace(app_manager.RyuApp):
             Args:
                 ev: FeatureReply
         """
-        self.switches[ev.msg.datapath_id] = new_switch(ev, self.config_vars)
+        self.switches[ev.msg.datapath_id] = new_switch(ev)
 
     def del_switch(self, ev):
         """
@@ -224,6 +213,9 @@ class SDNTrace(app_manager.RyuApp):
                 ev: PacketIn message
         """
         switch = self.get_switch('%016x' % ev.msg.datapath.id, by_name=True)
+        if isinstance(switch, bool):
+            print('PacketIn received for a switch that was not instantiated!!')
+            return
         action, result, in_port = switch.process_packetIn(ev, self.links)
 
         if action is 1:  # LLDP
@@ -231,7 +223,7 @@ class SDNTrace(app_manager.RyuApp):
             self.create_adjacencies(self.links)
         elif action is 2:  # Probe packets
             trace_type, pkt = tracing.process_probe_packet(ev, result, in_port,
-                                                           self.config_vars,
+                                                           self.config,
                                                            switch)
             if trace_type is 'Intra' and pkt is not False:
                 # This list is store all PacketIn message received
@@ -243,8 +235,6 @@ class SDNTrace(app_manager.RyuApp):
                                                               switch.datapath_id,
                                                               in_port)
                 # add new_entries to the trace_request_queue
-                #r_id = self.get_request_id()
-                #self.trace_request_queue[r_id] = new_entries
                 self.tracer.new_trace(new_entries)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)

@@ -5,6 +5,7 @@ import urllib2
 import json
 from ryu.lib import hub
 from libs.tracing.tracer import TracePath
+from libs.core.config_reader import ConfigReader
 from libs.core.debugging import debugclass
 
 
@@ -15,7 +16,7 @@ class TraceManager(object):
         manage all trace requests, intra or inter domain.
     """
 
-    def __init__(self, sdntrace_class, config):
+    def __init__(self, sdntrace_class):
         """
             Initialization of the TraceManagre class
         Args:
@@ -27,13 +28,13 @@ class TraceManager(object):
         # TODO: This class is used by the TracePath class.
         #       Sooner to be removed because only the switches are needed
         self.obj = sdntrace_class
-        self.config = config
+        self.config = ConfigReader()
         # Configs
         self._my_domain = None  # my domain name from config
         self._trace_interval = int()  # Interval between traces
         self._neighbors = []   # List of neighbors
         self._borders = dict()  # All my domain's DPID:PORTs
-        self._process_config(self.config)
+        self._process_config()
 
         # Traces
         self._id = 80000
@@ -60,18 +61,17 @@ class TraceManager(object):
                 return True
         return False
 
-    def _process_config(self, config):
+    def _process_config(self):
         """
             Process the configuration file and update all configs
             variables (my_domain, trace_interval, neighbors and borders
         Args:
             config: configuration file
         """
-        self._trace_interval = int(config['trace']['run_trace_interval'])
-        config_inter = config['inter-domain']
-        self._my_domain = config_inter['my_domain']
-        self._neighbors = config_inter['neighbors'].split(',')
-        sw_ports = config_inter['locals'].split(',')
+        self._trace_interval = self.config.trace.run_trace_interval
+        self._my_domain = self.config.interdomain.my_domain
+        self._neighbors = self.config.interdomain.neighbors
+        sw_ports = self.config.interdomain.locals
         for port in sw_ports:
             sw, sw_port = port.split(':')
             if sw in self._borders.keys():
@@ -299,7 +299,7 @@ class TraceManager(object):
             Returns:
                 service url
         """
-        return self.config[domain]['service']
+        return self.config.interdomain.get_service(domain)
 
     def new_trace(self, entries):
         """
@@ -331,7 +331,7 @@ class TraceManager(object):
                 remote_id: remote trace ID
                 service: service URL
         """
-        print('Uploading Inter-domain Trace Results')
+        print('Uploading Inter-domain Trace Results...'),
         if forward is None:
             final_result = []
             final_result.append({"type": "intertrace", "domain": self._my_domain,
@@ -346,4 +346,4 @@ class TraceManager(object):
         request.add_header('Content-Type', 'application/json')
         request.get_method = lambda: 'PUT'
         url = opener.open(request)
-        print('Upload completed')
+        print(' done!')

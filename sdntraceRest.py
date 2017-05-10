@@ -25,8 +25,7 @@ class SDNTraceController(ControllerBase):
         super(SDNTraceController, self).__init__(req, link, data, **config)
         self.sdntrace_app = data[sdntrace_instance_name]
         self.sdntrace_rest = FormatRest(self.sdntrace_app.switches,
-                                        self.sdntrace_app.links,
-                                        self.sdntrace_app.config_vars)
+                                        self.sdntrace_app.links)
         self.sdntrace_trace = self.sdntrace_app.tracer
 
     @route('sdntrace', '/sdntrace/switches', methods=['GET'])
@@ -151,8 +150,6 @@ class SDNTraceController(ControllerBase):
         print("Inter-domain SDNTrace updates")
         try:
             new_entry = eval(req.body)
-        #    interdomain = new_entry[0]
-        #    other_entries = new_entry[1]
 
         except Exception as e:
             print('SDNTraceRest Error: %s' % e)

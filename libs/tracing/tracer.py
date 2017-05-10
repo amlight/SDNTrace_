@@ -5,6 +5,7 @@ from ryu.lib import hub
 from libs.tracing.trace_pkt import generate_trace_pkt, prepare_next_packet
 from libs.core.rest.tracer import FormatRest
 from libs.tracing.trace_msg import TraceMsg
+from libs.core.config_reader import ConfigReader
 
 
 class TracePath(object):
@@ -35,10 +36,11 @@ class TracePath(object):
         self.trace_ended = False
         self.init_switch = self.get_init_switch()
         self.rest = FormatRest(self.obj)
+        self.config = ConfigReader()
 
         # Support for inter-domain
         self.inter_domain = self.trace_mgr.is_interdomain(self.id)
-        self.mydomain = self.obj.config_vars['inter-domain']['my_domain']
+        self.mydomain = self.config.interdomain.my_domain
 
     def get_init_switch(self):
         dpid = self.init_entries['trace']['switch']['dpid']
@@ -94,7 +96,7 @@ class TracePath(object):
             out_port = switch.match_flow(in_port, probe_pkt)
             if out_port in switch.inter_domain_ports.keys():
                 neighbor_conf = switch.inter_domain_ports[out_port]
-                self.trace_interdomain(switch, neighbor_conf, entries, color, in_port)
+                self.trace_interdomain(switch, neighbor_conf.color_value, entries, in_port)
 
         # Add final result to trace_results_queue
         # if inter_domain, add a status to the result, f. i, 'running'
@@ -168,11 +170,10 @@ class TracePath(object):
             i += 1
         return 0
 
-    def trace_interdomain(self, switch, neighbor_conf, entries, color, in_port):
+    def trace_interdomain(self, switch, neighbor_color, entries, in_port):
         # Inter-domain operations start here...
         # Rewrite trace
         print('Inter-Domain Trace Started!')
-        neighbor_color = neighbor_conf['color'].split(',')[1]
         # Customize a trace_pkt
         # Assuming switch.color (intra) is different
         # from neighbor.color (inter), creates a probe packet

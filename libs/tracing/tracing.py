@@ -11,15 +11,15 @@ def process_probe_packet(ev, pkt, in_port, configs, switch):
         Args:
             ev: msg
             pkt: data
-            configs: SDNTrace configs - used for inter-domain
+            configs: ConfigReader class
         Returns:
             False in case it is not a probe packet
             or
             (pktIn_dpid, pktIn_port, pkt[4], pkt, ev)
     """
-    color = configs['inter-domain']['color'].split(',')[1]
+    color = configs.interdomain.color_value
     inter_port = switch.inter_domain_ports
-    my_domain = configs['inter-domain']['my_domain']
+    my_domain = configs.interdomain.my_domain
     pktIn_dpid = '%016x' % ev.msg.datapath.id
     pktIn_port = in_port
 

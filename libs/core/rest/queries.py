@@ -1,12 +1,13 @@
 import json
+from libs.core.config_reader import ConfigReader
 
 
 class FormatRest:
 
-    def __init__(self, switches, links=None, config=None):
+    def __init__(self, switches, links=None):
         self.switches = switches
         self.links = links
-        self.config = config
+        self.config = ConfigReader()
 
     def switch_info(self, dpid):
         """
@@ -91,8 +92,8 @@ class FormatRest:
             }
         """
         # Collect all inter-domain info from the configuration file
-        inter_conf = self.config["inter-domain"]["locals"].split(',')
-        inter_names = self.config["inter-domain"]["neighbors"].split(',')
+        inter_conf = self.config.interdomain.locals
+        inter_names = self.config.interdomain.neighbors
 
         # Create a temporary dictionary with all inter-domain ports adding
         #  the remote domain's name to it
@@ -101,7 +102,7 @@ class FormatRest:
             sw_dpid, sw_port = node.split(':')
             inter[sw_dpid] = {}
             for neighbor in inter_names:
-                local = self.config[neighbor]['local'].split(':')[0]
+                local = self.config.interdomain.get_local_sw(neighbor)
                 if local == sw_dpid:
                     inter[sw_dpid][sw_port] = {'type':'interdomain',
                                                'domain_name': neighbor}
