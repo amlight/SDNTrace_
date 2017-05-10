@@ -1,0 +1,98 @@
+<!doctype html>
+<head>
+    {% block head %}
+        <title>{% block title %}{% endblock %} SDN Trace</title>
+        <meta charset=utf-8>
+        <script src="{{ url_for('static', filename='jslib/highlight.min.js') }}"></script>
+        <script src="{{ url_for('static', filename='jslib/jquery.min.js') }}"></script>
+        <script src="{{ url_for('static', filename='jslib/bootstrap.min.js') }}"></script>
+        <script src="{{ url_for('static', filename='jslib/jquery.mask.min.js') }}"></script>
+
+        <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+        <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
+        <script src="{{ url_for('static', filename='jslib/d3.v4.4.4.min.js') }}"></script>
+
+        <script src="{{ url_for('static', filename='jslib/d3-context-menu.js') }}"></script>
+
+        <link href="{{ url_for('static', filename='jslib/bootstrap.min.css') }}" rel="stylesheet">
+        <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+        <link href="{{ url_for('static', filename='jslib/ie10-viewport-bug-workaround.css') }}" rel="stylesheet">
+
+        <link href="{{ url_for('static', filename='css/layout.css') }}" rel="stylesheet">
+        <script src="{{ url_for('static', filename='js/conf.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/lg.js') }}"></script>
+    {% endblock %}
+</head>
+<body>
+<div class=box>
+    {% block nav_bar %}
+        <nav class="navbar navbar-inverse navbar-fixed-top">
+            <div class="container">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand" href="/">
+                        <div id="header__logo"><img src="" ></div>
+                        <div id="header__name">
+                            <span id="header__name__1st">SDN Trace</span>
+                        </div>
+                    </a>
+                </div>
+                <div id="navbar" class="collapse navbar-collapse">
+                    <ul class="nav navbar-nav">
+                        <li><a href="/topology">Topology</a></li>
+                        <!--
+                        <li class="dropdown">
+                          <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Statistics <span class="caret"></span></a>
+                          <ul class="dropdown-menu">
+                            <li><a href="#">Action</a></li>
+                            <li><a href="#">Another action</a></li>
+                            <li><a href="#">Something else here</a></li>
+                            <li role="separator" class="divider"></li>
+                            <li><a href="#">Separated link</a></li>
+                            <li role="separator" class="divider"></li>
+                            <li><a href="#">One more separated link</a></li>
+                          </ul>
+                        </li>
+                         -->
+                        <li><a href="#about" data-toggle="modal" data-target="#gridAboutModal">About</a></li>
+                    </ul>
+                </div><!--/.nav-collapse -->
+            </div>
+         </nav>
+
+        <div id="gridAboutModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="gridAboutModalLabel">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title" id="gridAboutModalLabel">SDN Trace <span id="about__version"></span></h4>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <p>The SDN Trace was written by Jeronimo Bezerra, Antonio J. F. Francisco and Rogerio S. Motitsuki.</p>
+                                <p>This tool is based upon work supported by the National Science Foundation under Grant No. ACI-1451018, IRNC BACKBONE: Americas Lightpaths Express and Protect. </p>
+                                <p>The source-code is available on <a href="https://github.com/amlight/SDNTrace">AmLight's GitHub</a>.
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div id="about__roadmap" class="col-md-12">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        </div>
+                    </div><!-- /.modal-content -->
+                </div><!-- /.modal-dialog -->
+            </div><!-- /.modal -->
+        </div>
+        {% endblock %}
+  {% block body %}{% endblock %}
+</div>
+</body>

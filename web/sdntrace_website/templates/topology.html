@@ -1,0 +1,428 @@
+{% extends "layout.html" %}
+{% block head %}
+  {{ super() }}
+    <script src="{{ url_for('static', filename='js/topology.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/trace.js') }}"></script>
+    <link href="{{ url_for('static', filename='css/topology.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/trace.css') }}" rel="stylesheet">
+    <script src="{{ url_for('static', filename='jslib/jquery.splitter.js') }}"></script>
+    <link href="{{ url_for('static', filename='jslib/jquery.splitter.css') }}" rel="stylesheet">
+{% endblock %}
+{% block body %}
+<script>
+jQuery(function($) {
+    console.log('jquery start');
+    var splitter = $('#splitter__div').height(850).split({
+        orientation: 'vertical',
+        limit: 10,
+        position: '75%', // if there is no percentage it interpret it as pixels
+    });
+});
+
+
+</script>
+<div class="row" id="topology__frame">
+    <div class="col-md-12">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+              <div class="row">
+                <div class="collapse navbar-collapse col-md-1">
+                  <div class="pull-left ">
+                    <button id="topology__toolbar_menu_button" type="button" class="navbar-toggle-always collapsed" data-toggle="collapse" data-target="#topology__toolbar_buttons" aria-expanded="false" aria-controls="navbar">
+                      <span class="icon-bar-always"></span>
+                      <span class="icon-bar-always"></span>
+                      <span class="icon-bar-always"></span>
+                    </button>
+                  </div>
+                </div>
+                <h3 class="panel-title col-md-11">Topology</h3>
+              </div>
+          </div>
+          <div class="panel-body col-md-12">
+            <div id="topology__toolbar" class="col-md-12">
+                <div class="collapse" id="topology__toolbar_buttons" style="position:absolute;z-index:100">
+                  <h4>Options</h4>
+                  <hr>
+                  <ul class="nav nav-tabs">
+                      <li><button type="button" id="topology__toolbar__btn__label__link"
+                      class="btn btn-primary" data-toggle="button"
+                      aria-pressed="false" autocomplete="off" aria-label="Link"
+                      title="Toggle link labels visibility">
+                        Toggle ports
+                      </button></li>
+                      <li><button type="button" id="topology__toolbar__btn__label__speed"
+                      class="btn btn-primary" data-toggle="button"
+                      aria-pressed="false" autocomplete="off" aria-label="Link"
+                      title="Toggle link speed labels visibility">
+                        Toggle speed
+                      </button></li>
+                      <li><button type="button" id="topology__toolbar__btn__colors"
+                      class="btn btn-primary" data-toggle="button"
+                      aria-pressed="false" autocomplete="off" aria-label="Link"
+                      title="Toggle topology colors">
+                        Toggle topology color
+                      </button></li>
+                      <li><button type="button" id="topology__toolbar__btn__clear_trace"
+                      class="btn btn-primary" data-toggle="button"
+                      aria-pressed="false" autocomplete="off" aria-label="Link"
+                      title="Clear trace">
+                        Clear trace
+                      </button></li>
+                  </ul>
+                </div>
+
+              <!--
+              <button type="button" id="topology__toolbar__btn__label__link_number"
+                      class="btn btn-primary" data-toggle="button"
+                      aria-pressed="false" autocomplete="off" aria-label="Link"
+                      title="Toggle link labels visibility">
+                LN
+              </button>
+              -->
+
+
+              <!--<button type="button" id="topology__toolbar__btn__add_node"-->
+                      <!--class="btn btn-primary" data-toggle="button"-->
+                      <!--aria-pressed="false" autocomplete="off" aria-label="Link"-->
+                      <!--title="Test. Add nodes">-->
+                <!--add node-->
+              <!--</button>-->
+
+
+            </div>
+            <div id="splitter__div" class="col-md-12">
+                <div class="panel panel-default canvas col_fixed_960">
+                    <div class="panel-body">
+                        <div id="topology__canvas"></div>
+                    </div>
+                </div>
+                <div id="canvas_info">
+                    <div id="canvas_info_body">
+                        <div id="domain_panel_info" style="display:none;" class="panel panel-default">
+                          <div class="panel-heading">
+                              <h4 class="panel-title">
+                                <a data-toggle="collapse" href="#domain_panel_info_collapse">Domain</a>
+                              </h4>
+                          </div>
+                          <div id="domain_panel_info_collapse" class="panel-collapse collapse">
+                              <div class="panel-body">
+                                <div>
+                                  <ul>
+                                    <li id="domain_panel_info_name"><span>Name: </span><span id="domain_panel_info_name_value"></span></li>
+                                  </ul>
+                                </div>
+                              </div>
+                            </div>
+                        </div>
+                        <div id="switch_panel_info" style="display:none;" class="panel panel-default">
+                          <div class="panel-heading">
+                              <h4 class="panel-title">
+                                <a data-toggle="collapse" href="#switch_panel_info_collapse">Switch</a>
+                              </h4>
+                          </div>
+                          <div id="switch_panel_info_collapse" class="panel-collapse collapse">
+                              <div class="panel-body">
+                                <div>
+                                  <ul>
+                                    <li id="switch_panel_info_domain"><span>Domain: </span><span id="switch_panel_info_domain_value"></span></li>
+                                    <li id="switch_panel_info_name"><span>Name: </span><span id="switch_panel_info_name_value"></span></li>
+                                    <li id="switch_panel_info_dpid"><span>DPID: </span><span id="switch_panel_info_dpid_value"></span></li>
+                                    <li id="switch_panel_info_flows"><span>N. Flows: </span><span id="switch_panel_info_flows_value"></span></li>
+
+                                    <li id="switch_panel_info_tcp_port"><span>TCP Port: </span><span id="switch_panel_info_tcp_port_value"></span></li>
+                                    <li id="switch_panel_info_openflow_version"><span>OF Version: </span><span id="switch_panel_info_openflow_version_value"></span></li>
+                                    <li id="switch_panel_info_switch_vendor"><span>Vendor: </span><span id="switch_panel_info_switch_vendor_value"></span></li>
+                                    <li id="switch_panel_info_ip_address"><span>IP Address: </span><span id="switch_panel_info_ip_address_value"></span></li>
+                                    <li id="switch_panel_info_color"><span>Color: </span><span id="switch_panel_info_color_value"></span></li>
+                                  </ul>
+                                </div>
+                              </div>
+                            </div>
+                        </div>
+                        <div id="port_panel_info" style="display:none;" class="panel panel-default">
+                          <div class="panel-heading">
+                              <h4 class="panel-title">
+                                <a data-toggle="collapse" href="#port_panel_info_collapse">Port</a>
+                              </h4>
+                          </div>
+                          <div id="port_panel_info_collapse" class="panel-collapse collapse">
+                              <div class="panel-body">
+                                <div>
+                                  <ul>
+                                    <li id="port_panel_info_name"><span>Name: </span><span id="port_panel_info_name_value"></span></li>
+                                    <li id="port_panel_info_number"><span>Number: </span><span id="port_panel_info_number_value"></span></li>
+                                    <!--<li id="port_panel_info_flows"><span>N. Flows: </span><span id="port_panel_info_flows_value"></span></li>-->
+                                      <li id="port_panel_info_speed"><span>Speed: </span><span id="port_panel_info_speed_value"></span></li>
+                                      <!--<li id="port_panel_info_uptime"><span>Uptime: </span><span id="port_panel_info_uptime_value"></span></li>-->
+                                      <li id="port_panel_info_status"><span>Status: </span><span id="port_panel_info_status_value"></span></li>
+                                  </ul>
+                                </div>
+                              </div>
+                          </div>
+                        </div>
+                        <!--<div id="switch_to_panel_info" style="" class="panel panel-default">-->
+                          <!--<div class="panel-heading">-->
+                              <!--<h4 class="panel-title">-->
+                                <!--<a data-toggle="collapse" href="#switch_to_panel_info_collapse">Switch Connected</a>-->
+                              <!--</h4>-->
+                          <!--</div>-->
+                          <!--<div id="switch_to_panel_info_collapse" class="panel-collapse collapse">-->
+                              <!--<div class="panel-body">-->
+                                <!--<div>-->
+                                  <!--<ul>-->
+                                    <!--<li id="switch_to_panel_info_name"><span>Name:</span><span id="switch_to_panel_info_name_value"></span></li>-->
+                                    <!--<li id="switch_to_panel_info_dpid"><span>DPID: </span><span id="switch_to_panel_info_dpid_value"></span></li>-->
+                                    <!--<li id="switch_to_panel_info_flows"><span>N. Flows: </span><span id="switch_to_panel_info_flows_value"></span></li>-->
+                                  <!--</ul>-->
+                                <!--</div>-->
+                              <!--</div>-->
+                          <!--</div>-->
+                        <!--</div>-->
+                        <div id="trace_panel_info" style="display:none;" class="panel panel-default">
+                          <div class="panel-heading">
+                              <h4 class="panel-title">
+                                <a data-toggle="collapse" href="#trace_panel_info_collapse">Trace Result</a>
+                                <div class="loading-icon-div"><img src="../static/img/ajax-loader.gif" /></div>
+                              </h4>
+                          </div>
+                          <div id="trace_panel_info_collapse" class="panel-collapse collapse">
+                              <div class="panel-body" >
+
+                                <div id="trace-result-content">
+                                </div>
+                              </div>
+                          </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+          </div>
+        </div>
+    </div>
+</div>
+<div class="row" id="topology__elements">
+    <div class="col-md-12">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="panel-title">Topology</h3>
+          </div>
+          <div class="panel-body">
+            <div id="topology__elements__list">
+
+            </div>
+          </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- Trace forms -->
+<div id="sdn_trace_form">
+    <div id="sdn_trace_form__switch-filter-row" class="row">
+        <!-- Switches list -->
+        <input type="hidden" name="sdn_trace_form__switch-hidden" id="sdn_trace_form__switch-hidden" >
+        <div class="col-md-2"><label>Switch:</label></div>
+        <div id="sdn_trace_form__switch-content" class="col-md-10"></div>
+    </div>
+    <div id="sdn_trace_form__ports-filter-row" class="row">
+        <!-- Ports list -->
+        <input type="hidden" name="sdn_trace_form__switch-port-hidden" id="sdn_trace_form__switch-port-hidden" >
+        <div class="col-md-2"><label>Ports:</label></div>
+        <div id="sdn_trace_form__switch-ports-content" class="col-md-10"><select class="form-control"></select></div>
+    </div>
+    <hr />
+    <div id="sdn_trace_form__row-forms" class="row">
+        <div class="col-md-12 form-horizontal">
+            <!-- Nav tabs -->
+            <ul class="nav nav-tabs" role="tablist"><li role="presentation" class="active"><a href="#trace-layer-2" aria-controls="trace-layer-2" role="tab" data-toggle="tab">Trace Layer 2</a></li>
+                <li role="presentation"><a href="#trace-layer-3" aria-controls="trace-layer-3" role="tab" data-toggle="tab">Trace Layer 3</a></li>
+                <li role="presentation"><a href="#trace-layer-full" aria-controls="trace-layer-full" role="tab" data-toggle="tab">Trace Full</a></li>
+            </ul>
+            <!-- Tab panes -->
+            <div class="tab-content">
+                <!-- Tab panes - Form layer 2 trace -->
+                <div role="tabpanel" class="tab-pane active" id="trace-layer-2">
+                    <div class="panel panel-default">
+                        <div class="panel-body">
+                            <form id="maskFormLayer2" method="post" class="form-horizontal">
+                                <div class="form-group">
+                                    <div class="col-md-offset-3 col-md-12 required-field-msg">
+                                        * Indicates a required field
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="l2_dl_src" class="col-md-3 control-label">MAC Origem</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="l2_dl_src" name="l2_dl_src" placeholder="MAC Origem">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="l2_dl_dst" class="col-md-3 control-label">MAC Destino</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="l2_dl_dst" name="l2_dl_dst" placeholder="MAC Destino">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="l2_dl_vlan" class="col-md-3 control-label">VLAN *</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="l2_dl_vlan" name="l2_dl_vlan" placeholder="VLAN">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="l2_dl_type" class="col-md-3 control-label">Ethertype</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="l2_dl_type" name="l2_dl_type" placeholder="Ethertype">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-md-offset-3 col-md-3">
+                                        <button type="button" class="btn btn-default" id="layer2_btn">Trace Layer 2</button>
+                                    </div>
+                                    <div class="col-md-6 loading-icon-div">
+                                        <img src="./ajax-loader.gif" />
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <!-- Tab panes - Form layer 3 trace -->
+                <div role="tabpanel" class="tab-pane" id="trace-layer-3">
+                    <div class="panel panel-default">
+                        <div class="panel-body">
+                            <form id="maskFormLayer3" method="post" class="form-horizontal">
+                                <div class="form-group">
+                                    <div class="col-md-offset-3 col-md-12 required-field-msg">
+                                        * Indicates a required field
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="l3_dl_vlan" class="col-md-3 control-label">VLAN *</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="l3_dl_vlan" name="l3_dl_vlan" placeholder="VLAN">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="l3_nw_src" class="col-md-3 control-label">IP de Origem</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control ip_address" type="text" id="l3_nw_src" name="l3_nw_src" placeholder="IP de Origem">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="l3_nw_dst" class="col-md-3 control-label">IP de Destino</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control ip_address" type="text" id="l3_nw_dst" name="l3_nw_dst" placeholder="IP de Destino">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="l3_nw_tos" class="col-md-3 control-label">TOS</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="l3_nw_tos" name="l3_nw_tos" placeholder="TOS">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="l3_tp_src" class="col-md-3 control-label">TCP de Origem</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="l3_tp_src" name="l3_tp_src" placeholder="TCP de Origem">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="l3_tp_dst" class="col-md-3 control-label">TCP de Destino</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="l3_tp_dst" name="l3_tp_dst" placeholder="TCP de Destino">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                   <div class="col-md-offset-3 col-md-3">
+                                        <button type="button" class="btn btn-default" id="layer3_btn">Trace Layer 3</button>
+                                    </div>
+                                    <div class="col-md-6 loading-icon-div">
+                                        <img src="./ajax-loader.gif" />
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <!-- Tab panes - Form full trace -->
+                <div role="tabpanel" class="tab-pane" id="trace-layer-full">
+                    <div class="panel panel-default">
+                        <div class="panel-body">
+                            <form id="maskFormLayerFull" method="post" class="form-horizontal">
+                                <div class="form-group">
+                                    <div class="col-md-offset-3 col-md-9 required-field-msg">
+                                        * Indicates a required field
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf_dl_src" class="col-md-3 control-label">MAC Origem</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="lf_dl_src" name="lf_dl_src" placeholder="MAC Origem">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf_dl_dst" class="col-md-3 control-label">MAC Destino</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="lf_dl_dst" name="lf_dl_dst" placeholder="MAC Destino">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf_dl_vlan" class="col-md-3 control-label">VLAN *</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="lf_dl_vlan" name="lf_dl_vlan" placeholder="VLAN">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf_dl_type" class="col-md-3 control-label">Ethertype</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="lf_dl_type" name="lf_dl_type" placeholder="Ethertype">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf_nw_src" class="col-md-3 control-label ip_address">IP de Origem</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="lf_nw_src" name="lf_nw_src" placeholder="IP de Origem">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf_nw_dst" class="col-md-3 control-label ip_address">IP de Destino</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="lf_nw_dst" name="lf_nw_dst" placeholder="IP de Destino">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf_nw_tos" class="col-md-3 control-label">TOS</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="lf_nw_tos" name="lf_nw_tos" placeholder="TOS">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf_tp_src" class="col-md-3 control-label">TCP de Origem</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="lf_tp_src" name="lf_tp_src" placeholder="TCP de Origem">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf_tp_dst" class="col-md-3 control-label">TCP de Destino</label>
+                                    <div class="col-md-9">
+                                        <input class="form-control" type="text" id="lf_tp_dst" name="lf_tp_dst" placeholder="TCP de Destino">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-md-offset-3 col-md-3">
+                                        <button type="button" class="btn btn-default" id="layerfull_btn">Trace Full</button>
+                                    </div>
+                                    <div class="col-md-6 loading-icon-div">
+                                        <img src="./ajax-loader.gif" />
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

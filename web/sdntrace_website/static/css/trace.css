@@ -1,0 +1,21 @@
+/**
+ D3 trace
+*/
+
+
+/* use parameter !important because the highlight is changing the style attribute */
+.node-trace-active,
+.link-trace-active {
+    stroke: rgb(30, 170, 40) !important;
+    stroke-width: 5px !important;
+}
+
+.trace_result_item_error {
+    color: red;
+}
+.trace_result_item_done {
+    color: green;
+}
+.trace_result_item_loop {
+    color: darkorange;
+}

@@ -1,0 +1,358 @@
+/* d3-context-menu styles */
+
+.d3-context-menu {
+	position: absolute;
+	display: none;
+	background-color: #f2f2f2;
+	border-radius: 4px;
+
+	font-family: Arial, sans-serif;
+	font-size: 14px;
+	min-width: 150px;
+	border: 1px solid #d4d4d4;
+
+	z-index:1200;
+}
+.d3-context-menu ul {
+	list-style-type: none;
+	margin: 4px 0px;
+	padding: 0px;
+	cursor: default;
+}
+.d3-context-menu ul li {
+	padding: 4px 16px;
+}
+.d3-context-menu ul li:hover {
+	background-color: #4677f8;
+	color: #fefefe;
+}
+.d3-context-menu hr {
+    margin: 0;
+    color: darkgray;
+    border-color: darkgray;
+}
+.d3-context-menu hr:parent:hover {
+    background-color: #efefef;
+    color: darkgray;
+}
+.d3-context-menu .is-disabled {
+    background-color: #efefef;
+    color: darkgray;
+}
+.d3-context-menu .is-disabled {
+    background-color: #efefef;
+    color: darkgray;
+}
+.d3-context-menu .is-disabled:hover {
+    background-color: #efefef;
+    color: darkgray;
+}
+
+/* topology */
+/* topology panel parent div */
+#topology__frame {
+    margin: 2em;
+}
+#topology__toolbar .btn-primary {
+  background-color: rgb(148, 179, 206);
+}
+#topology__toolbar .btn-primary.active {
+  background-color: #286090;
+}
+
+/* toolbar menu button to toggle the menu itens */
+#topology__toolbar_menu_button {
+    margin: 0;
+    border-color: #aaa;
+}
+
+#topology__toolbar_buttons {
+    background-color: lightgray;
+    padding: 10px;
+    border: 1px darkgray solid;
+    border-radius: 6px;
+}
+
+#topology__toolbar_buttons > .nav-tabs {
+    border-color: lightgray;
+}
+#topology__toolbar_buttons > hr {
+    margin: 15px;
+}
+/* toolbar menu button to toggle the menu itens. Inside bars */
+#topology__toolbar_buttons li {
+    margin-right: 10px;
+    clear: both;
+    margin-bottom: 10px;
+}
+#topology__toolbar_menu_button > span {
+    border-color: #aaa;
+}
+
+#topology__frame h3 {
+    margin-top: 10px;
+}
+
+/* d3 canvas svg */
+#topology__canvas svg {
+  /* height: auto; */
+}
+.node {
+  cursor: pointer;
+  stroke: black;
+}
+rect.node  {
+  fill: skyblue;
+  stroke: green;
+  stroke-width: 1.5px;
+}
+.node text {
+  font: 12px sans-serif;
+  font-weight: bold;
+}
+.link {
+  fill: none;
+  stroke: lightgray;
+  stroke-width: 1.5px;
+}
+.link-thin {
+  stroke-width: 1.5px;
+}
+.link-medium {
+  stroke-width: 5px;
+}
+.link-large {
+  stroke-width: 10px;
+}
+circle {
+  stroke: #333;
+  stroke-width: 1.5px;
+}
+text {
+  font: 11px sans-serif;
+  pointer-events: none;
+  text-shadow: 0 1px 0 #ddd, 1px 0 0 #ddd, 0 -1px 0 #ddd, -1px 0 0 #ddd;
+  font-weight: bold;
+}
+.target-label,
+.source-label,
+.speed-label {
+    font-size: 10px;
+    font-weight: bold;
+    display: none;
+}
+.canvas {
+    position: relative;
+    width: 100%;
+    height:100%;
+}
+#canvas_info {
+    width: 100%;
+    height:100%;
+}
+#canvas_info_body {
+    height:100%;
+}
+
+.col_fixed_960 {
+/*
+    width:960px;
+    height:600px;
+*/
+    width: 100%;
+    height:100%;
+    position:relative;
+    float:left;
+}
+.col_fixed_960 > .panel-body {
+    width: 100%;
+    height:100%;
+}
+
+.svg-container {
+    display: inline-block;
+    position: relative;
+
+    vertical-align: top;
+    overflow: hidden;
+    padding-bottom: 1em;
+}
+.svg-content-responsive {
+    display: inline-block;
+    position: relative;
+    top: 10px;
+    left: 0;
+}
+/* switch interfaces popup */
+#switch_popup {
+    position: absolute;
+    height: 20em;
+    width: 19em;
+    bottom: 2em;
+    right: 2em;
+    padding: 8px;
+    background-color: #fff;
+    border: 1px #ccc solid;
+    border-radius: 6px;
+    box-shadow: #333 2px 2px 4px;
+    font-family: arial, helvetica, sans-serif;
+    font-size: 0.8em;
+}
+
+#switch_popup .popup_body {
+    overflow-y: scroll;
+    height: 12.5em;
+}
+
+#switch_popup .popup_body a {
+    cursor: pointer;
+}
+
+#switch_popup div.popup_header {
+    margin: 0;
+    font-size: 1.5em;
+}
+#switch_popup hr {
+    margin: 0.5em 0 1em 0;
+}
+
+/**
+  Topology data table
+*/
+#topology__elements {
+    margin: 2em;
+}
+#topology__elements table td {
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+/* topology id */
+#topology__elements table td:nth-child(1),
+ #topology__elements table td:nth-child(4) {
+  width: 11em;
+}
+/* topology color */
+#topology__elements table td:nth-child(2) {
+  width: 5em;
+  white-space: nowrap;
+  font-weight:bold;
+}
+/* topology arrow */
+#topology__elements table td:nth-child(3) {
+  width: 3em;
+}
+/* topology color */
+#topology__elements table td:nth-child(5) {
+  width: 100%;
+  white-space: nowrap;
+  font-weight:bold;
+}
+#topology__elements li {
+  list-style:none;
+}
+#topology__canvas {
+    width: 100%;
+    height:100%;
+}
+
+/* topology info frame */
+/* switch data */
+#canvas_info_body ul {
+    padding: 0;
+}
+#canvas_info_body li {
+    list-style-type: none;
+
+}
+
+/* Trace form to submit data */
+.ui-dialog {
+    z-index: 1000;
+}
+#sdn_trace_form {
+    width: 100%;
+}
+#sdn_trace_form .row {
+    margin: 0;
+}
+#sdn_trace_form__ports-filter-row.row,
+#sdn_trace_form__switch-filter-row.row {
+    margin-top: 10px;
+}
+#sdn_trace_form__row-forms {
+    overflow: hidden;
+}
+
+#port_panel_info_collapse > div > div > ul > li > span:nth-child(1),
+#switch_panel_info_collapse > div > div > ul > li > span:nth-child(1) {
+    font-weight: bold;
+}
+
+#trace_panel_info .loading-icon-div {
+  margin:0;
+  padding: 0;
+  display:none;
+  float:right;
+}
+
+
+.navbar-inverse .navbar-toggle-always {
+  border-color: #333333;
+}
+.navbar-inverse .navbar-toggle-always:hover,
+.navbar-inverse .navbar-toggle-always:focus {
+  background-color: #333333;
+}
+.navbar-inverse .navbar-toggle-always .icon-bar-always {
+  background-color: #ccc;
+  border-color: #111;
+}
+.navbar-toggle-always {
+  position: relative;
+  float: right;
+  margin-right: 15px;
+  padding: 9px 10px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  background-color: transparent;
+  background-image: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  margin-left: 0;
+  margin-right: 0;
+}
+.navbar-toggle-always:focus {
+  outline: 0;
+}
+.navbar-toggle-always .icon-bar {
+  display: block;
+  width: 22px;
+  height: 2px;
+  border-radius: 1px;
+}
+.navbar-toggle-always .icon-bar + .icon-bar {
+  margin-top: 4px;
+}
+@media (min-width: 768px) {
+  .navbar-toggle-always {
+    display: none;
+  }
+}
+@media (min-width: 768px) {
+  .navbar-toggle-always {
+    display: block!important;
+    background-color: transparent;
+    border: 1px solid #333333;
+  }
+}
+.navbar-toggle-always .icon-bar-always {
+  width: 22px;
+  height: 2px;
+  border: 1px solid #fff;
+  display: block;
+  border-radius: 1px;
+}
+.navbar-toggle-always .icon-bar-always + .icon-bar-always {
+  margin-top: 4px;
+}
+
