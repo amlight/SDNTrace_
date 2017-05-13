@@ -53,7 +53,7 @@ class SDNTraceController(ControllerBase):
         return self._colors(req, **kwargs)
 
     @route('sdntrace', '/sdntrace/switches/{dpid}/flows', methods=['GET'])
-    def print_trace_id(self, req, **kwargs):
+    def print_flows(self, req, **kwargs):
         return self._listflows(req, **kwargs)
 
     @route('sdntrace', '/sdntrace/trace', methods=['PUT'])
@@ -112,6 +112,11 @@ class SDNTraceController(ControllerBase):
             body = json.dumps(error)
         else:
             body = json.dumps(result)
+        return Response(content_type='application/json', body=body)
+
+    def _listflows(self, req, **kwargs):
+        dpid = kwargs['dpid']
+        body = self.sdntrace_rest.list_flows(dpid)
         return Response(content_type='application/json', body=body)
 
     def _trace(self, req, **kwargs):

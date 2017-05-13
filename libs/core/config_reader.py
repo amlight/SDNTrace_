@@ -169,7 +169,6 @@ class Neighbor:
             self.color_field = neighbor_config['color_field']
             self.type = neighbor_config['type']
             self.service = neighbor_config['service']
-            print(neighbor_config, self.service)
         except KeyError as error:
             print('ConfigReader Error: %s' % error)
 

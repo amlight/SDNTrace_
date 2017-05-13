@@ -1,5 +1,7 @@
 import json
 from libs.core.config_reader import ConfigReader
+from libs.core.rest.openflow_helper import process_actions
+from libs.core.rest.openflow_helper import process_match
 
 
 class FormatRest:
@@ -132,3 +134,75 @@ class FormatRest:
 
         # Return switches in the json format
         return json.dumps(switches)
+
+    def list_flows(self, dpid):
+        """
+            /sdntrace/switches/{dpid}/flows
+           {
+                "dpid": "0000000000000001",
+                "number_flows": 5,
+                "flows": [
+                    {
+                        "actions": [
+                            {
+                                "max_len": 65509,
+                                "type": "OFPActionOutput(0)",
+                                "port": 65533
+                            }
+                            ...
+                        ],
+                        "idle_timeout": 0,
+                        "cookie": 2000002,
+                        "priority": 50001,
+                        "hard_timeout": 0,
+                        "byte_count": 0,
+                        "duration_nsec": 71000000,
+                        "packet_count": 0,
+                        "duration_sec": 4,
+                        "table_id": 0,
+                        "match": {
+                            "wildcards": 3678458,
+                            "dl_src": "ee:ee:ee:11:11:11",
+                            "in_port": 1
+                            ...
+                        }
+                    }
+                    ...
+                ]
+            }
+            or
+            {} if not found
+        """
+        body = dict()  # in case user requests before switch appears
+        flows = list()
+        for _, switch in self.switches.items():
+            if switch.name == dpid:
+                for flow in sorted(sorted(switch.flows, key=lambda f: f.duration_sec, reverse=True),
+                                   key=lambda f: f.priority, reverse=True):
+                    match = process_match(flow.match)
+                    actions = process_actions(flow.actions)
+                    flow_stats = {
+                        "byte_count": flow.byte_count,
+                        "cookie": flow.cookie,
+                        "duration_nsec": flow.duration_nsec,
+                        "duration_sec": flow.duration_sec,
+                        "hard_timeout": flow.hard_timeout,
+                        "idle_timeout": flow.idle_timeout,
+                        "packet_count": flow.packet_count,
+                        "priority": flow.priority,
+                        "table_id": flow.table_id,
+                        "match": match,
+                        "actions": actions
+                    }
+                    flows.append(flow_stats)
+
+                # Finished loop, process output
+                final = {
+                    "dpid": dpid,
+                    "number_flows": len(flows),
+                    "flows": flows
+                }
+                body = json.dumps(final)
+                break
+        return body
+
