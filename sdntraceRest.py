@@ -1,8 +1,6 @@
-
 import json
-
-from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 from webob import Response
+from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 
 import sdntrace
 from libs.rest.queries import FormatRest
@@ -26,7 +24,6 @@ class SDNTraceController(ControllerBase):
 
     def __init__(self, req, link, data, **config):
         super(SDNTraceController, self).__init__(req, link, data, **config)
-        self.sdntrace_app = data[sdntrace_instance_name]
         self.sdntrace_rest = FormatRest()
         self.sdntrace_trace = TraceManager()
 
@@ -114,13 +111,8 @@ class SDNTraceController(ControllerBase):
         """
             Trace method.
         """
-        nodes_app = self.sdntrace_app
         try:
             new_entry = eval(req.body)
-
-            if not nodes_app.print_ready:
-                body = json.dumps("SDNTrace: System Not Ready Yet!")
-                return Response(content_type='application/json', body=body)
 
             request_id = self.sdntrace_trace.new_trace(new_entry)
             if request_id == 0:

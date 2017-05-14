@@ -5,6 +5,7 @@ from libs.openflow.of10.openflow_helper import process_actions
 from libs.openflow.of10.openflow_helper import process_match
 from libs.topology.links import Links
 from libs.topology.switches import Switches
+from apps.topo_discovery.topo_discovery import TopologyDiscovery
 
 
 class FormatRest:
@@ -13,6 +14,7 @@ class FormatRest:
         self.switches = Switches()
         self.links = Links()
         self.config = ConfigReader()
+        self.topology = TopologyDiscovery()
 
     def list_switches(self):
         switches = [switch.name for switch in self.switches.get_switches()]
@@ -112,47 +114,9 @@ class FormatRest:
                 "dpid_b": ...
             }
         """
-        # Collect all inter-domain info from the configuration file
-        inter_conf = self.config.interdomain.locals
-        inter_names = self.config.interdomain.neighbors
-
-        # Create a temporary dictionary with all inter-domain ports adding
-        #  the remote domain's name to it
-        inter = dict()
-        for node in inter_conf:
-            sw_dpid, sw_port = node.split(':')
-            inter[sw_dpid] = {}
-            for neighbor in inter_names:
-                local = self.config.interdomain.get_local_sw(neighbor)
-                if local == sw_dpid:
-                    inter[sw_dpid][sw_port] = {'type':'interdomain',
-                                               'domain_name': neighbor}
-
-        # Create the final dictionary with all switches and ports
-        #   Uses the inter dict to add inter-domain info. If no inter-domain
-        #   is found, assume it is a host port - for now.
-        switches = dict()
-        for switch in self.switches.get_switches():
-            switches[switch.name] = {}
-            for port in switch.ports:
-                try:
-                    switches[switch.name][port] = inter[switch.name][str(port)]
-                except:
-                    switches[switch.name][port] = {'type': 'host',
-                                                   'host_name': 'no_name'}
-
-        # Now, update the switches dictionary with the link info from the
-        #   SDNTrace.links, which is the Links class.
-        for link in self.links.links:
-            switches[link.switch_a][link.port_a] = { 'type': 'link',
-                                                     'neighbor_dpid': link.switch_z,
-                                                     'neighbor_port': link.port_z}
-            switches[link.switch_z][link.port_z] = { 'type': 'link',
-                                                     'neighbor_dpid': link.switch_a,
-                                                     'neighbor_port': link.port_a}
-
+        topology = self.topology.get_topology()
         # Return switches in the json format
-        return json.dumps(switches)
+        return json.dumps(topology)
 
     def list_flows(self, dpid):
         """

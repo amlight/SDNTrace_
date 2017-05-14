@@ -1,6 +1,7 @@
 """
     OpenFlow generic switch class
 """
+from ryu.lib import hub
 from ryu.lib.packet import packet, lldp, ethernet, vlan
 from ryu.ofproto import ether
 
@@ -44,6 +45,8 @@ class OFSwitch(object):
         self.is_inter_domain = False
         self.inter_domain_ports = dict()
         self.setup_interdomain()
+        # get flows
+        self._get_flows = hub.spawn(self._request_flows)
 
     @property
     def version_name(self):
@@ -162,6 +165,17 @@ class OFSwitch(object):
                 self.ports[msg.desc.port_no] = {"port_no": msg.desc.port_no,
                                                 "name": msg.desc.name,
                                                 "speed": speed}
+
+    def _request_flows(self):
+        """
+            Keep asking for flow entries of each switch
+        """
+        while True:
+                self.get_flows()
+                hub.sleep(self.config.stats.flowstats_interval)
+
+    def save_flows(self, flows):
+        self.flows = sorted(flows, key=lambda f: f.priority, reverse=True)
 
     def send_packet_out(self, port, data, lldp=False):
         """

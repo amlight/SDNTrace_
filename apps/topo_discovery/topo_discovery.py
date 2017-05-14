@@ -5,6 +5,7 @@ from libs.topology.switches import Switches
 from apps.topo_discovery.lldp_helper import prepare_lldp_packet
 from libs.topology.links import Links
 
+
 class TopologyDiscovery(object):
 
     __metaclass__ = Singleton
@@ -15,6 +16,7 @@ class TopologyDiscovery(object):
         self.links = Links()
         self.active = self._set_active()
         self.run = hub.spawn(self._topology_discovery)
+        self._topology = None
 
     def _set_active(self):
         if self.config.topo.activate == 'on':
@@ -45,6 +47,7 @@ class TopologyDiscovery(object):
     def handle_packet_in_lldp(self, link):
         self.links.add_link(link)
         self.create_adjacencies(self.links)
+        self._update_topology()
 
     def create_adjacencies(self, links):
         """
@@ -55,3 +58,54 @@ class TopologyDiscovery(object):
         """
         for switch in self.switches.get_switches():
             switch.create_adjacencies(self, links)
+
+    def _update_topology(self):
+        """
+            Update topology
+        """
+        # Collect all inter-domain info from the configuration file
+        inter_conf = self.config.interdomain.locals
+        inter_names = self.config.interdomain.neighbors
+
+        # Create a temporary dictionary with all inter-domain ports adding
+        #  the remote domain's name to it
+        inter = dict()
+        for node in inter_conf:
+            sw_dpid, sw_port = node.split(':')
+            inter[sw_dpid] = {}
+            for neighbor in inter_names:
+                local = self.config.interdomain.get_local_sw(neighbor)
+                if local == sw_dpid:
+                    inter[sw_dpid][sw_port] = {'type':'interdomain',
+                                               'domain_name': neighbor}
+
+        # Create the final dictionary with all switches and ports
+        #   Uses the inter dict to add inter-domain info. If no inter-domain
+        #   is found, assume it is a host port - for now.
+        switches = dict()
+        for switch in self.switches.get_switches():
+            switches[switch.name] = {}
+            for port in switch.ports:
+                try:
+                    switches[switch.name][port] = inter[switch.name][str(port)]
+                except:
+                    switches[switch.name][port] = {'type': 'host',
+                                                   'host_name': 'no_name'}
+
+        # Now, update the switches dictionary with the link info from the
+        #   SDNTrace.links, which is the Links class.
+        for link in self.links.links:
+            switches[link.switch_a][link.port_a] = { 'type': 'link',
+                                                     'neighbor_dpid': link.switch_z,
+                                                     'neighbor_port': link.port_z}
+            switches[link.switch_z][link.port_z] = { 'type': 'link',
+                                                     'neighbor_dpid': link.switch_a,
+                                                     'neighbor_port': link.port_a}
+        self._topology = switches
+        # TODO: send an event with the new topology for all apps
+
+    def __str__(self):
+        print(self._topology)
+
+    def get_topology(self):
+        return self._topology
