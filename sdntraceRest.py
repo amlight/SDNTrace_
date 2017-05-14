@@ -29,31 +29,38 @@ class SDNTraceController(ControllerBase):
 
     @route('sdntrace', '/sdntrace/switches', methods=['GET'])
     def print_switches(self, req, **kwargs):
-        return self._switches(req, **kwargs)
+        body = self.sdntrace_rest.list_switches()
+        return Response(content_type='application/json', body=body)
 
     @route('sdntrace', '/sdntrace/switches/topology', methods=['GET'])
     def print_topology(self, req, **kwargs):
-        return self._topology(req, **kwargs)
+        body = self.sdntrace_rest.get_topology()
+        return Response(content_type='application/json', body=body)
 
     @route('sdntrace', '/sdntrace/switches/colors', methods=['GET'])
     def print_colors(self, req, **kwargs):
-        return self._colors(req, **kwargs)
+        body = self.sdntrace_rest.list_colors()
+        return Response(content_type='application/json', body=body)
 
     @route('sdntrace', '/sdntrace/switches/{dpid}/info', methods=['GET'])
     def print_switch_info(self, req, **kwargs):
-        return self._switch_info(req, **kwargs)
+        body = self.sdntrace_rest.switch_info(kwargs['dpid'])
+        return Response(content_type='application/json', body=body)
 
     @route('sdntrace', '/sdntrace/switches/{dpid}/ports', methods=['GET'])
     def print_switch_ports(self, req, **kwargs):
-        return self._switch_ports(req, **kwargs)
+        body = self.sdntrace_rest.switch_ports(kwargs['dpid'])
+        return Response(content_type='application/json', body=body)
 
     @route('sdntrace', '/sdntrace/switches/{dpid}/neighbors', methods=['GET'])
     def print_switch_neighbors(self, req, **kwargs):
-        return self._switch_neighbors(req, **kwargs)
+        body = self.sdntrace_rest.switch_neighbors(kwargs['dpid'])
+        return Response(content_type='application/json', body=body)
 
     @route('sdntrace', '/sdntrace/switches/{dpid}/flows', methods=['GET'])
     def print_flows(self, req, **kwargs):
-        return self._listflows(req, **kwargs)
+        body = self.sdntrace_rest.list_flows(kwargs['dpid'])
+        return Response(content_type='application/json', body=body)
 
     @route('sdntrace', '/sdntrace/trace', methods=['PUT'])
     def run_trace(self, req, **kwargs):
@@ -66,34 +73,6 @@ class SDNTraceController(ControllerBase):
     @route('sdntrace', '/sdntrace/trace/inter', methods=['PUT'])
     def put_trace_inter(self, req, **kwargs):
         return self._put_trace_inter(req, **kwargs)
-
-    def _switches(self, req, **kwargs):
-        body = self.sdntrace_rest.list_switches()
-        return Response(content_type='application/json', body=body)
-
-    def _switch_info(self, req, **kwargs):
-        body = self.sdntrace_rest.switch_info(kwargs['dpid'])
-        return Response(content_type='application/json', body=body)
-
-    def _switch_ports(self, req, **kwargs):
-        body = self.sdntrace_rest.switch_ports(kwargs['dpid'])
-        return Response(content_type='application/json', body=body)
-
-    def _switch_neighbors(self, req, **kwargs):
-        body = self.sdntrace_rest.switch_neighbors(kwargs['dpid'])
-        return Response(content_type='application/json', body=body)
-
-    def _topology(self, req, **kwargs):
-        body = self.sdntrace_rest.get_topology()
-        return Response(content_type='application/json', body=body)
-
-    def _colors(self, req, **kwargs):
-        body = self.sdntrace_rest.list_colors()
-        return Response(content_type='application/json', body=body)
-
-    def _listflows(self, req, **kwargs):
-        body = self.sdntrace_rest.list_flows(kwargs['dpid'])
-        return Response(content_type='application/json', body=body)
 
     def _get_trace(self, req, **kwargs):
         trace_id = kwargs['trace_id']
