@@ -36,7 +36,7 @@ class Switches:
             Args:
                 ev: DEAD_DISPATCH event
         """
-        switch = self.switches.get_switch(ev.datapath)
+        switch = self.get_switch(ev.datapath)
         if switch is not False:
             self.links.remove_switch(switch.name)
             self._switches.pop(switch.dpid)
