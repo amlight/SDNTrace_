@@ -11,7 +11,6 @@ class GraphColoring(object):
     __metaclass__ = Singleton
 
     def __init__(self):
-        print('Graph Coloring App activated')
         self.switches = Switches()
         self.links = Links()
         self.config = ConfigReader()
@@ -19,6 +18,7 @@ class GraphColoring(object):
         self.old_colors = []    # List of old colors used
         # Threads
         self._refresh_colors = hub.spawn(self._push_colors)
+        print('Graph Coloring App activated')
 
     def _push_colors(self):
         """

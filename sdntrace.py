@@ -15,9 +15,7 @@ from ryu.topology import event
 from libs.core.config_reader import ConfigReader
 from libs.topology.links import Links
 from libs.topology.switches import Switches
-from apps.tracing import tracing
 from apps.tracing.trace_manager import TraceManager
-from apps.tracing.trace_pkt import generate_entries_from_packet_in
 from apps.topo_discovery.topo_discovery import TopologyDiscovery
 from apps.graph_coloring.graph_coloring import GraphColoring
 
@@ -31,7 +29,7 @@ class SDNTrace(app_manager.RyuApp):
 
         self.config = ConfigReader()
         # List of received PacketIn non-LLDP
-        self.trace_pktIn = []
+        # self.trace_pktIn = []
         # Topology
         self.switches = Switches()
         self.links = Links()
@@ -40,7 +38,7 @@ class SDNTrace(app_manager.RyuApp):
         # Graph Coloring App
         self.graph_coloring = GraphColoring()
         # Trace_Manager App
-        self.tracer = TraceManager(self)
+        self.tracer = TraceManager()
         print('SDNTrace Ready!')
 
     # Event Listeners
@@ -107,21 +105,8 @@ class SDNTrace(app_manager.RyuApp):
         if action is 1:  # LLDP
             self.topo_disc.handle_packet_in_lldp(link=result)
 
-        elif action is 2:  # Probe packets
-            trace_type, pkt = tracing.process_probe_packet(ev, result, in_port,
-                                                           self.config,
-                                                           switch)
-            if trace_type is 'Intra' and pkt is not False:
-                # This list is store all PacketIn message received
-                self.trace_pktIn.append(pkt)
-            elif trace_type is 'Inter':
-                print('Inter-domain probe received')
-                # Convert pkt.data to entries
-                new_entries = generate_entries_from_packet_in(ev,
-                                                              switch.datapath_id,
-                                                              in_port)
-                # add new_entries to the trace_request_queue
-                self.tracer.new_trace(new_entries)
+        elif action is 2:  # Trace packets
+            self.tracer.process_probe_packet(ev, result, in_port, switch)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
     def openflow_error(self, ev):

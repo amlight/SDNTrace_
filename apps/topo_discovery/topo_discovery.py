@@ -45,6 +45,12 @@ class TopologyDiscovery(object):
                 hub.sleep(self.config.topo.packet_out_interval)
 
     def handle_packet_in_lldp(self, link):
+        """
+            Once a LLDP + PacketIn is received, add the discovered link,
+                updated adjacencies and update topology
+            Args:
+                link: Class Link
+        """
         self.links.add_link(link)
         self.create_adjacencies(self.links)
         self._update_topology()
@@ -102,7 +108,6 @@ class TopologyDiscovery(object):
                                                      'neighbor_dpid': link.switch_a,
                                                      'neighbor_port': link.port_a}
         self._topology = switches
-        # TODO: send an event with the new topology for all apps
 
     def __str__(self):
         print(self._topology)

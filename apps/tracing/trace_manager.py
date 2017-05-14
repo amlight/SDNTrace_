@@ -4,9 +4,13 @@
 import urllib2
 import json
 from ryu.lib import hub
+from ryu.lib.packet import ethernet
+from apps.tracing.trace_msg import TraceMsg
 from apps.tracing.tracer import TracePath
 from libs.core.config_reader import ConfigReader
 from libs.core.singleton import Singleton
+from libs.topology.switches import Switches
+from apps.tracing.trace_pkt import gen_entries_from_packet_in
 
 
 class TraceManager(object):
@@ -17,7 +21,7 @@ class TraceManager(object):
 
     __metaclass__ = Singleton
 
-    def __init__(self, sdntrace_class):
+    def __init__(self):
         """
             Initialization of the TraceManagre class
         Args:
@@ -25,10 +29,7 @@ class TraceManager(object):
             config: configuration file with interdomain
                     information
         """
-        # Main SDNTrace class
-        # TODO: This class is used by the TracePath class.
-        #       Sooner to be removed because only the switches are needed
-        self.obj = sdntrace_class
+        self.switches = Switches()
         self.config = ConfigReader()
         # Configs
         self._my_domain = None  # my domain name from config
@@ -43,6 +44,9 @@ class TraceManager(object):
         self._request_queue = dict()
         self._results_queue = dict()
 
+        # PacketIn queue
+        self.trace_pktIn = []
+
         # Thread to start traces
         self.tracing = hub.spawn(self._run_traces)
 
@@ -50,12 +54,12 @@ class TraceManager(object):
         """
             Method to identify if the switch and port belong are an inter
             domain connection
-        Args:
-            sw: dpid
-            sw_port: int(port number)
-        Returns:
-            True: if it is a border interface
-            False: if it is not
+            Args:
+                sw: dpid
+                sw_port: int(port number)
+            Returns:
+                True: if it is a border interface
+                False: if it is not
         """
         if sw in self._borders.keys():
             if str(sw_port) in self._borders[sw].keys():
@@ -110,7 +114,7 @@ class TraceManager(object):
                 tracer.tracepath
         """
         print("Creating thread to trace request id %s..." % trace_id)
-        tracer = TracePath(self, self.obj, trace_id, self._request_queue[trace_id])
+        tracer = TracePath(self, trace_id, self._request_queue[trace_id])
         return tracer.tracepath
 
     def add_inter_result(self, new_entry):
@@ -162,7 +166,8 @@ class TraceManager(object):
         remote_id, service = self.get_service_from_active_queue(trace_id)
         if service is not 0:
             if forward is not None:
-                self.upload_trace_interdomain(trace_id, remote_id, service, forward=forward)
+                self.upload_trace_interdomain(trace_id, remote_id, service,
+                                              forward=forward)
             else:
                 self.upload_trace_interdomain(trace_id, remote_id, service)
 
@@ -225,7 +230,7 @@ class TraceManager(object):
         """
         # TODO: improve with more tests
         dpid = entries['trace']['switch']['dpid']
-        init_switch = self.obj.get_switch(dpid, by_name=True)
+        init_switch = self.switches.get_switch(dpid, by_name=True)
         if not isinstance(init_switch, bool):
             return True
         return False
@@ -324,6 +329,51 @@ class TraceManager(object):
         self._request_queue[trace_id] = entries
         return trace_id
 
+    def process_probe_packet(self, ev, pkt, in_port, switch):
+        """
+            Used by sdntrace.packet_in_handler
+            Args:
+                ev: msg
+                pkt: data
+                in_port: in_port
+                switch: datapath 
+            Returns:
+                False in case it is not a probe packet
+                or
+                (pktIn_dpid, pktIn_port, pkt[4], pkt, ev)
+        """
+        color = self.config.interdomain.color_value
+        inter_port = switch.inter_domain_ports
+        my_domain = self.config.interdomain.my_domain
+
+        pktIn_dpid = '%016x' % ev.msg.datapath.id
+        pktIn_port = in_port
+
+        pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
+        msg = TraceMsg()
+        msg.import_data(pkt[-1])
+
+        if msg.type == 'intra' and msg.local_domain == my_domain:
+            # Intra-domain
+            if pkt_eth.src.find('ee:ee:ee:ee:ee:') == 0:
+                # This list is store all PacketIn message received
+                self.trace_pktIn.append((pktIn_dpid, pktIn_port, pkt[-1], pkt, ev))
+
+        elif pkt_eth.src == color and str(in_port) in inter_port:
+            # return 'Inter', (pktIn_dpid, pktIn_port, pkt[-1], pkt, ev)
+            print('Inter-domain probe received')
+            # Convert pkt.data to entries
+            new_entries = gen_entries_from_packet_in(ev, switch.datapath_id,
+                                                     in_port)
+            # add new_entries to the trace_request_queue
+            self.new_trace(new_entries)
+
+        else:
+            # TODO: Understand possibilitie:
+            # 1 - put it back? Drop? For, drop it.
+            # print('ignore')
+            return None, False
+
     def upload_trace_interdomain(self, local_id, remote_id, service, forward=None):
         """
             If trace is interdomain, upload results to the source
@@ -331,6 +381,8 @@ class TraceManager(object):
                 local_id: trace ID of the intra domain
                 remote_id: remote trace ID
                 service: service URL
+                forward: indicate if we need to send the result
+                    to source domain (inter-domain)
         """
         print('Uploading Inter-domain Trace Results...'),
         if forward is None:

@@ -51,7 +51,7 @@ class Coloring(object):
 
     def print_colors(self):
         """
-            Print colors in case of troubleshoot needed
+            Print colors in case troubleshooting is needed
         """
         total_colors = []
         for v in self.vertices_list:

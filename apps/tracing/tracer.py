@@ -1,12 +1,12 @@
 """
     Tracer main class
 """
+from ryu.lib import hub
+from libs.core.config_reader import ConfigReader
+from libs.rest.tracer import FormatRest
+from libs.topology.switches import Switches
 from apps.tracing.trace_msg import TraceMsg
 from apps.tracing.trace_pkt import generate_trace_pkt, prepare_next_packet
-from ryu.lib import hub
-
-from libs.core.config_reader import ConfigReader
-from libs.rest.queries import FormatRest
 
 
 class TracePath(object):
@@ -27,16 +27,15 @@ class TracePath(object):
         - we can have flow rewrite along the path (vlan translation, f.i)
     """
 
-    def __init__(self, trace_manager, sdntrace_class, r_id, initial_entries):
-        self.obj = sdntrace_class
+    def __init__(self, trace_manager, r_id, initial_entries):
+        self.switches = Switches()
         self.trace_mgr = trace_manager
-        self.switches = self.obj.switches
         self.id = r_id
         self.init_entries = initial_entries
         self.trace_result = []
         self.trace_ended = False
         self.init_switch = self.get_init_switch()
-        self.rest = FormatRest(self.obj)
+        self.rest = FormatRest()
         self.config = ConfigReader()
 
         # Support for inter-domain
@@ -45,7 +44,7 @@ class TracePath(object):
 
     def get_init_switch(self):
         dpid = self.init_entries['trace']['switch']['dpid']
-        return self.obj.get_switch(dpid, by_name=True)
+        return self.switches.get_switch(dpid, by_name=True)
 
     def tracepath(self):
         """
@@ -89,7 +88,7 @@ class TracePath(object):
                 # If we got here, that means we need to keep going.
                 # Prepare next packet
                 prepare = prepare_next_packet
-                entries, color, switch = prepare(self.obj, entries, result, packet_in)
+                entries, color, switch = prepare(self.switches, entries, result, packet_in)
 
         # Check if the last switch has inter-domain neighbors
         # if so, infer is current flows go through the interdomain port
@@ -132,12 +131,12 @@ class TracePath(object):
             if timeout_control >= 3:
                 return 'timeout', False
 
-            if len(self.obj.trace_pktIn) is 0:
+            if len(self.trace_mgr.trace_pktIn) is 0:
                 print('Sending PacketOut Again')
                 switch.send_packet_out(in_port, probe_pkt.data)
             else:
                 # There are probes in the PacketIn queue
-                for pIn in self.obj.trace_pktIn:
+                for pIn in self.trace_mgr.trace_pktIn:
                     # Let's look for one with our self.id
                     # Each entry has the following format:
                     # (pktIn_dpid, pktIn_port, pkt[-1], pkt, ev)
@@ -153,11 +152,11 @@ class TracePath(object):
         """
             Once the probe PacketIn was processed, delete it from queue
         """
-        for pIn in self.obj.trace_pktIn:
+        for pIn in self.trace_mgr.trace_pktIn:
             msg = TraceMsg()
             msg.import_data(pIn[2])
             if self.id == msg.request_id:
-                self.obj.trace_pktIn.remove(pIn)
+                self.trace_mgr.trace_pktIn.remove(pIn)
 
     def check_loop(self):
         """
