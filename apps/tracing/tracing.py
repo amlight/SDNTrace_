@@ -2,7 +2,7 @@
     This file will be the core of the trace system.
 """
 from ryu.lib.packet import ethernet
-from libs.tracing.trace_msg import TraceMsg
+from apps.tracing.trace_msg import TraceMsg
 
 
 def process_probe_packet(ev, pkt, in_port, configs, switch):

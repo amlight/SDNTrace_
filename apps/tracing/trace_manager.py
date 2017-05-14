@@ -4,17 +4,18 @@
 import urllib2
 import json
 from ryu.lib import hub
-from libs.tracing.tracer import TracePath
+from apps.tracing.tracer import TracePath
 from libs.core.config_reader import ConfigReader
-from libs.core.debugging import debugclass
+from libs.core.singleton import Singleton
 
 
-@debugclass
 class TraceManager(object):
     """
         The TraceManager class is the app responsible to
         manage all trace requests, intra or inter domain.
     """
+
+    __metaclass__ = Singleton
 
     def __init__(self, sdntrace_class):
         """

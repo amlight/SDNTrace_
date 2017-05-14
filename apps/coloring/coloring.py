@@ -4,7 +4,7 @@ class Coloring(object):
 
     def __init__(self, switches_list):
         """
-            Instantiate Cororing class
+            Instantiate Coloring class
             Args:
                 switches_list: list of OFSwitch classes (or node_list)
         """
@@ -20,7 +20,7 @@ class Coloring(object):
             Args:
                 self: coloring class
         """
-        for _, vertex in self.vertices_list.items():
+        for vertex in self.vertices_list:
             k = 0
             color_list = self.colors[:]
             color = color_list[k]
@@ -54,7 +54,7 @@ class Coloring(object):
             Print colors in case of troubleshoot needed
         """
         total_colors = []
-        for _, v in self.vertices_list.items():
+        for v in self.vertices_list:
             total_colors.append(v.color)
             print(v.name + ' == ' + v.color)
 
@@ -67,7 +67,7 @@ class Coloring(object):
             Return a list of dictionaries with nodes and colors
         """
         list_vertex_color = []
-        for _, v in self.vertices_list.items():
+        for v in self.vertices_list:
             list_vertex_color.append({v.name: v.color})
 
         return list_vertex_color

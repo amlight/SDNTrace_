@@ -1,11 +1,12 @@
 """
     Tracer main class
 """
+from apps.tracing.trace_msg import TraceMsg
+from apps.tracing.trace_pkt import generate_trace_pkt, prepare_next_packet
 from ryu.lib import hub
-from libs.tracing.trace_pkt import generate_trace_pkt, prepare_next_packet
-from libs.core.rest.tracer import FormatRest
-from libs.tracing.trace_msg import TraceMsg
+
 from libs.core.config_reader import ConfigReader
+from libs.rest.queries import FormatRest
 
 
 class TracePath(object):

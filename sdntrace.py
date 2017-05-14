@@ -2,6 +2,7 @@
     This is the core of the SDNTrace
     Here all OpenFlow events are received and handled
 """
+
 from ryu import utils
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -12,13 +13,14 @@ from ryu.lib import hub
 from ryu.ofproto import ofproto_v1_0, ofproto_v1_3
 from ryu.topology import event
 
-from libs.coloring.auxiliary import prepare_lldp_packet, define_colors
-from libs.openflow.new_switch import new_switch
-from libs.tracing import tracing
-from libs.tracing.trace_pkt import generate_entries_from_packet_in
-from libs.coloring.links import Links
-from libs.tracing.trace_manager import TraceManager
+from apps.coloring.auxiliary import define_colors
 from libs.core.config_reader import ConfigReader
+from libs.topology.links import Links
+from libs.topology.switches import Switches
+from apps.tracing import tracing
+from apps.tracing.trace_manager import TraceManager
+from apps.tracing.trace_pkt import generate_entries_from_packet_in
+from apps.topo_discovery.topo_discovery import TopologyDiscovery
 
 
 class SDNTrace(app_manager.RyuApp):
@@ -27,40 +29,28 @@ class SDNTrace(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(SDNTrace, self).__init__(*args, **kwargs)
-        self.sw_addrs = dict()  # Dict for switches' IP addresses
-        self.switches = dict()  # Dict for OFSwitch1* classes
-        self.links = Links()     # List of links detected
+
         self.colors = []        # List of current colors in use
         self.old_colors = []    # List of old colors used
         # Threads
-        self.topo_disc = hub.spawn(self._topology_discovery)
         self.push_colors = hub.spawn(self._push_colors)
         self.flows = hub.spawn(self.get_all_flows)
+
         self.trace_pktIn = []  # list of received PacketIn non LLDP
-        # Other variables
-        self.config = ConfigReader()
-        self.print_ready = False  # Just to print System Ready once
+
+        # Topology
+        self.switches = Switches()  # Dict for OFSwitch1* classes
+        self.links = Links()     # List of links detected
+
+        # Topology Discovery App
+        self.topo_disc = TopologyDiscovery()
 
         # Trace_Manager
         self.tracer = TraceManager(self)
 
-    # Auxiliary Threads
-    def _topology_discovery(self):
-        """
-            Keeps looping self.switches every PACKET_OUT_INTERVAL seconds
-            Send a packet_out w/ LLDP to every port found
-            Args:
-                self
-        """
-        vlan = self.config.topo.vlan_discovery
-        while True:
-            # Only send PacketOut + LLDP when more than one switch exists
-            if len(self.switches) > 1:
-                for _, switch in self.switches.items():
-                    for port in switch.ports:
-                        pkt = prepare_lldp_packet(switch, port, vlan)
-                        switch.send_packet_out(port, pkt.data, lldp=True)
-            hub.sleep(self.config.topo.packet_out_interval)
+        # Other variables
+        self.config = ConfigReader()
+        self.print_ready = False  # Just to print System Ready once
 
     def _push_colors(self):
         """
@@ -83,59 +73,10 @@ class SDNTrace(app_manager.RyuApp):
 
         """
         while True:
-            for switch in self.switches.values():
-                switch.get_flows()
+            if len(self.switches) > 1:
+                for switch in self.switches.get_switches():
+                    switch.get_flows()
             hub.sleep(self.config.stats.flowstats_interval)
-
-    # Main thread
-    def add_switch(self, ev):
-        """
-            Add the new switch to the self.switches dict
-            Args:
-                ev: FeatureReply
-        """
-        self.switches[ev.msg.datapath_id] = new_switch(ev)
-
-    def del_switch(self, ev):
-        """
-            In case of DEAD_DISPATCH, remove the switch from
-            the self.switches dict
-            Args:
-                ev: DEAD_DISPATCH event
-        """
-        switch = self.get_switch(ev.datapath)
-        if switch is not False:
-            self.links.remove_switch(switch.name)
-            switch.print_removed()
-            self.switches.pop(switch.dpid)
-
-    def get_switch(self, datapath, by_name=False):
-        """
-            Query the self.switches
-            Args:
-                datapath: datapath object <'str'> 16 digits
-                by_name: if search is by datapath id
-
-            Returns:
-                OFSwitch10 or OFSwitch13 objects
-                False if not found
-        """
-        for _, switch in self.switches.items():
-            if by_name:
-                if switch.name == datapath:
-                    return switch
-            else:
-                if switch.obj.msg.datapath == datapath:
-                    return switch
-        return False
-
-    def update_switch_address(self, switch_dp):
-        """"
-            Add tuple (IP, Port) to the OFSwitch class
-        """
-        dpid = '%016x' % switch_dp.id
-        sw = self.get_switch(dpid, True)
-        sw.update_addr(switch_dp.address)
 
     # Event Listeners
     @set_ev_cls(event.EventSwitchEnter)
@@ -147,7 +88,7 @@ class SDNTrace(app_manager.RyuApp):
         Args:
             ev: EventSwitchEnter
         """
-        self.update_switch_address(ev.switch.dp)
+        self.switches.update_switch_address(ev.switch.dp)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -160,7 +101,7 @@ class SDNTrace(app_manager.RyuApp):
             Args:
                 ev: FeatureReply received
         """
-        self.add_switch(ev)
+        self.switches.add_switch(ev)
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     def port_status(self, ev):
@@ -170,7 +111,8 @@ class SDNTrace(app_manager.RyuApp):
             Args:
                 ev: PortStatus received
         """
-        switch = self.get_switch(ev.msg.datapath)
+        # TODO: Trigger topology change
+        switch = self.switches.get_switch(ev.msg.datapath)
         switch.port_status(ev)
 
     @set_ev_cls(ofp_event.EventOFPStateChange, DEAD_DISPATCHER)
@@ -180,7 +122,7 @@ class SDNTrace(app_manager.RyuApp):
             Args:
                 ev: packet captured
         """
-        self.del_switch(ev)
+        self.switches.del_switch(ev)
 
     @set_ev_cls(ofp_event.EventOFPPortDescStatsReply, MAIN_DISPATCHER)
     def port_desc_stats_reply_handler(self, ev):
@@ -190,7 +132,7 @@ class SDNTrace(app_manager.RyuApp):
             Args:
                 ev: FeatureReply received
         """
-        switch = self.get_switch(ev.msg.datapath)
+        switch = self.switches.get_switch(ev.msg.datapath)
         switch.process_port_desc_stats_reply(ev)
 
     @set_ev_cls(ofp_event.EventOFPDescStatsReply, MAIN_DISPATCHER)
@@ -201,7 +143,7 @@ class SDNTrace(app_manager.RyuApp):
             Args:
                 ev: FeatureReply received
         """
-        switch = self.get_switch(ev.msg.datapath)
+        switch = self.switches.get_switch(ev.msg.datapath)
         switch.process_description_stats_reply(ev)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
@@ -212,15 +154,16 @@ class SDNTrace(app_manager.RyuApp):
             Args:
                 ev: PacketIn message
         """
-        switch = self.get_switch('%016x' % ev.msg.datapath.id, by_name=True)
+        switch = self.switches.get_switch('%016x' % ev.msg.datapath.id, by_name=True)
         if isinstance(switch, bool):
             print('PacketIn received for a switch that was not instantiated!!')
             return
+
         action, result, in_port = switch.process_packetIn(ev, self.links)
 
         if action is 1:  # LLDP
-            self.links.add_link(result)
-            self.create_adjacencies(self.links)
+            self.topo_disc.handle_packet_in_lldp(link=result)
+
         elif action is 2:  # Probe packets
             trace_type, pkt = tracing.process_probe_packet(ev, result, in_port,
                                                            self.config,
@@ -244,9 +187,8 @@ class SDNTrace(app_manager.RyuApp):
             Args:
                 ev: event
         """
-        msg = ev.msg
         print('OFPErrorMsg received: type=0x%02x code=0x%02x message=%s' %
-              (msg.type, msg.code, utils.hex_array(msg.data)))
+              (ev.msg.type, ev.msg.code, utils.hex_array(ev.msg.data)))
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def handle_flow_stats(self, ev):
@@ -258,20 +200,8 @@ class SDNTrace(app_manager.RyuApp):
                 ev: EventOFPFlowStatsReply message
         """
         flows = ev.msg.body
-
-        switch = self.get_switch(ev.msg.datapath)
+        switch = self.switches.get_switch(ev.msg.datapath)
         switch.flows = sorted(flows, key=lambda f: f.priority, reverse=True)
-
-    # Other methods
-    def create_adjacencies(self, links):
-        """
-            Everytime self.links is updated, update all
-            adjacencies between switches
-            Args:
-                links: self.links
-        """
-        for _, switch in self.switches.items():
-            switch.create_adjacencies(self, links)
 
     def install_colored_flows(self):
         """
@@ -279,7 +209,7 @@ class SDNTrace(app_manager.RyuApp):
             Delete old flows
             Then push new flows
         """
-        colors = define_colors(self.switches)
+        colors = define_colors(self.switches.get_switches())
         # Compare received colors with self.old_colors
         # If the same, ignore
         if colors is not None:
@@ -298,7 +228,7 @@ class SDNTrace(app_manager.RyuApp):
         # 1 - Delete colored flows
         # 2 - For each switch, check colors of neighbors
         # 3 - Install all neighbors' colors
-        for _, switch in self.switches.items():
+        for switch in self.switches.get_switches():
             # 1 - Delete old colored flows
             switch.delete_colored_flows()
             # 2 - Check colors of all other switches
@@ -307,7 +237,7 @@ class SDNTrace(app_manager.RyuApp):
                 # Get Dict Key. Just one Key
                 for key in color:
                     if key != switch.name:
-                        neighbor = self.get_switch(key, by_name=True)
+                        neighbor = self.switches.get_switch(key, by_name=True)
                         if neighbor in switch.adjacencies_list:
                             neighbor_colors.append(color[key])
             # 3 - Install all colors from other switches

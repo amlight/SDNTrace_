@@ -1,6 +1,6 @@
 from ryu.lib.packet import ethernet, vlan, packet, ipv4, tcp
 from ryu.ofproto import ether
-from libs.tracing.trace_msg import TraceMsg
+from apps.tracing.trace_msg import TraceMsg
 
 
 def prepare_switch(switch, dpid, in_port):

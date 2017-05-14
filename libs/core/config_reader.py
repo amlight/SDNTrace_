@@ -133,10 +133,13 @@ class AppsConfig:
 
 class TopologyConfig:
 
+    ACTIVATE = 'on'
     PACKET_OUT_INTERVAL = 5
     VLAN_DISCOVERY = 100
 
     def __init__(self, config):
+        self.activate = get_config(config, 'activate',
+                                         default=self.ACTIVATE)
         self.packet_out_interval = get_config(config, 'packet_out_interval',
                                               int_type=True,
                                               default=self.PACKET_OUT_INTERVAL)

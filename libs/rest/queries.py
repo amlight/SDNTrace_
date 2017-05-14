@@ -1,15 +1,28 @@
 import json
+
 from libs.core.config_reader import ConfigReader
-from libs.core.rest.openflow_helper import process_actions
-from libs.core.rest.openflow_helper import process_match
+from libs.openflow.of10.openflow_helper import process_actions
+from libs.openflow.of10.openflow_helper import process_match
+from libs.topology.links import Links
+from libs.topology.switches import Switches
 
 
 class FormatRest:
 
-    def __init__(self, switches, links=None):
-        self.switches = switches
-        self.links = links
+    def __init__(self):
+        self.switches = Switches()
+        self.links = Links()
         self.config = ConfigReader()
+
+    def list_switches(self):
+        switches = [switch.name for switch in self.switches.get_switches()]
+        return json.dumps(switches)
+
+    def list_colors(self):
+        colors = {}
+        for switch in self.switches.get_switches():
+            colors[switch.name] = {'color': switch.color, 'old_color': switch.old_color}
+        return json.dumps(colors)
 
     def switch_info(self, dpid):
         """
@@ -27,8 +40,8 @@ class FormatRest:
             or
             {} if not found
         """
-        body = dict()  # in case user requests before switch appears
-        for _, switch in self.switches.items():
+        info = dict()  # in case user requests before switch appears
+        for switch in self.switches.get_switches():
             if switch.name == dpid:
                 info = {
                         'switch_name': switch.switch_name,
@@ -38,11 +51,10 @@ class FormatRest:
                         'openflow_version': switch.version_name,
                         'ip_address': switch.addr[0],
                         'tcp_port': switch.addr[1],
-                        'number_flows': 0
+                        'number_flows': len(switch.flows)
                         }
-                body = json.dumps(info)
                 break
-        return body
+        return json.dumps(info)
 
     def switch_ports(self, dpid):
         """
@@ -62,12 +74,19 @@ class FormatRest:
             }
         """
         body = dict()
-        for _, switch in self.switches.items():
+        for switch in self.switches.get_switches():
             if switch.name == dpid:
                 ports = switch.ports
                 body = json.dumps(ports)
                 break
         return body
+
+    def switch_neighbors(self, dpid):
+        neighbors = list()
+        for switch in self.switches.get_switches():
+            if switch.name == dpid:
+                neighbors = [neighbor.name for neighbor in switch.adjacencies_list]
+        return json.dumps(neighbors)
 
     def get_topology(self):
         """
@@ -113,7 +132,7 @@ class FormatRest:
         #   Uses the inter dict to add inter-domain info. If no inter-domain
         #   is found, assume it is a host port - for now.
         switches = dict()
-        for _, switch in self.switches.items():
+        for switch in self.switches.get_switches():
             switches[switch.name] = {}
             for port in switch.ports:
                 try:
@@ -175,7 +194,7 @@ class FormatRest:
         """
         body = dict()  # in case user requests before switch appears
         flows = list()
-        for _, switch in self.switches.items():
+        for switch in self.switches.get_switches():
             if switch.name == dpid:
                 for flow in sorted(sorted(switch.flows, key=lambda f: f.duration_sec, reverse=True),
                                    key=lambda f: f.priority, reverse=True):

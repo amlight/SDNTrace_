@@ -1,11 +1,14 @@
 """
     OpenFlow generic switch class
 """
-from ryu.ofproto import ether
 from ryu.lib.packet import packet, lldp, ethernet, vlan
+from ryu.ofproto import ether
+
 from libs.core.config_reader import ConfigReader
 from libs.openflow.port_speed import get_speed_name
-from libs.coloring.links import Link
+from libs.topology.link import Link
+# from libs.topology.switches import Switches
+import libs.topology.switches
 
 
 class OFSwitch(object):
@@ -15,6 +18,7 @@ class OFSwitch(object):
     """
     def __init__(self, ev):
         self.obj = ev
+        self.switches = libs.topology.switches.Switches()
         self.dpid = self.obj.msg.datapath_id
         self.ports = dict()
         self.adjacencies_list = []  # list of OFSwitch classes
@@ -120,10 +124,10 @@ class OFSwitch(object):
         self.adjacencies_list[:] = []
         for link in links.links:
             if link[0] == self.name:
-                neighbor = obj.get_switch(link[1], True)
+                neighbor = self.switches.get_switch(link[1], True)
                 self.adjacencies_list.append(neighbor)
             elif link[1] == self.name:
-                neighbor = obj.get_switch(link[0], True)
+                neighbor = self.switches.get_switch(link[0], True)
                 self.adjacencies_list.append(neighbor)
 
     def add_default_flow(self, match):
