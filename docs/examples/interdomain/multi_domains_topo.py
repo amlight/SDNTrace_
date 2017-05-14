@@ -16,19 +16,20 @@ ip_sdntrace = '190.103.187.55'
 
 
 def int2dpid( dpid ):
-   try:
-      dpid = hex( dpid )[ 2: ]
-      dpid = '0' * ( 16 - len( dpid ) ) + dpid
-      return dpid
-   except IndexError:
-      raise Exception( 'Unable to derive default datapath ID - '
-                       'please either specify a dpid or use a '
-		               'canonical switch name such as s23.' )
+    try:
+        dpid = hex( dpid )[ 2: ]
+        dpid = '0' * ( 16 - len( dpid ) ) + dpid
+        return dpid
+    except IndexError:
+        raise Exception('Unable to derive default datapath ID - '
+                        'please either specify a dpid or use a '
+		                'canonical switch name such as s23.')
 
 
 def multiControllerNet():
-
-    "Create a network from semi-scratch with multiple controllers."
+    """
+        Create a network from semi-scratch with multiple controllers.
+    """
     net = Mininet(topo=None, build=False)
 
     # Domain1 controller, hosts and switches
@@ -164,6 +165,6 @@ def multiControllerNet():
     net.stop()
 
 if __name__ == '__main__':
-    setLogLevel( 'info' )  # for CLI output
+    setLogLevel('info')  # for CLI output
     Cleanup.cleanup()
     multiControllerNet()

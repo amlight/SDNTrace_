@@ -1,0 +1,40 @@
+
+# This demo uses the topology from picture topo-interdomain-tests.jpg
+# It has 6 domains, 20 switches and 7 hosts
+
+# Open two sessions of the Mininet server
+# In one, start mininet topology
+
+python multi_domains_topo.py
+
+# In the other, apply some configurations
+
+sudo sh ovs_configs.sh IP_CONTROLLER
+
+# Add the flows
+
+sudo sh install_flows.sh
+
+# From the mininet session
+# h1 has to ping h5
+# h2 has to ping h7
+# h3 has to ping h6
+
+# Open six terminal sessions and run a SDNTrace server instance in each one:
+
+python run.py --config-file docs/examples/interdomain/sdntrace_domain1.conf
+python run.py --config-file docs/examples/interdomain/sdntrace_domain2.conf
+python run.py --config-file docs/examples/interdomain/sdntrace_domain3.conf
+python run.py --config-file docs/examples/interdomain/sdntrace_domain4.conf
+python run.py --config-file docs/examples/interdomain/sdntrace_domain5.conf
+python run.py --config-file docs/examples/interdomain/sdntrace_domain6.conf
+
+#Wait for all sessions show the entry "SDNTrace Ready!"
+
+# Trace flow from H2 to H7
+
+curl  -X PUT -d @trace_h2_h7_ok.json http://190.103.187.55:8009/sdntrace/trace
+
+# Trace flow from H7 to H2
+
+curl  -X PUT -d @trace_h7_h2_ok.json http://190.103.187.55:8019/sdntrace/trace
