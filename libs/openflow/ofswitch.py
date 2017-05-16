@@ -33,9 +33,7 @@ class OFSwitch(object):
         # TODO: Clear colored flows when connected
         # self.delete_colored_flows()
         self.clear_start = False
-        # To avoid issues when deleting flows
         self.config = ConfigReader()
-        # set cookie
         self.cookie = None
         self.set_cookie()
         # just to print connected once
@@ -45,7 +43,7 @@ class OFSwitch(object):
         self.is_inter_domain = False
         self.inter_domain_ports = dict()
         self.setup_interdomain()
-        # get flows
+        # threads
         self._get_flows = hub.spawn(self._request_flows)
 
     @property
@@ -211,8 +209,6 @@ class OFSwitch(object):
         """
             Remove old colored flows from the switch
         """
-        # TODO: add cookies to the filter
-        # TODO: Test again
         datapath = self.obj.msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser

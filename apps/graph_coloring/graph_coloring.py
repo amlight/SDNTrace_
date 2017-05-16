@@ -1,3 +1,8 @@
+"""
+    
+"""
+
+
 from ryu.lib import hub
 from libs.core.singleton import Singleton
 from libs.core.config_reader import ConfigReader
@@ -100,8 +105,6 @@ class GraphColoring(object):
                 important to know the last color to use as a
                 match for deleting old flows
                 Just copy current color for old_color variable
-            Args:
-                switches: SDNTrace class' dict of switches
         """
         for switch in self.switches.get_switches():
             switch.old_color = switch.color

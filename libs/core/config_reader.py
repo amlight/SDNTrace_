@@ -7,6 +7,9 @@ from singleton import Singleton
 
 
 class ConfigReader:
+    """
+    
+    """
 
     __metaclass__ = Singleton
 
@@ -25,6 +28,14 @@ class ConfigReader:
 
     @staticmethod
     def read_file(config_file):
+        """
+        
+        Args:
+            config_file: 
+
+        Returns:
+
+        """
         config = ConfigParser()
         try:
             with open(config_file) as f:
@@ -50,6 +61,14 @@ class ConfigReader:
         return sections
 
     def fill_sections(self, configs):
+        """
+        
+        Args:
+            configs: 
+
+        Returns:
+
+        """
         self.general = GeneralConfig(configs['general'])
         self.openflow = OpenflowConfig(configs['openflow'])
         self.trace = TraceConfig(configs['trace'])
@@ -61,6 +80,18 @@ class ConfigReader:
 
 
 def get_config(config, option, int_type=False, default=None, islist=False):
+    """
+    
+    Args:
+        config: 
+        option: 
+        int_type: 
+        default: 
+        islist: 
+
+    Returns:
+
+    """
     try:
         if not islist:
             return int(config[option]) if int_type else config[option]

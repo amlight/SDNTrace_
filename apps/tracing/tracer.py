@@ -1,6 +1,8 @@
 """
     Tracer main class
 """
+
+
 from ryu.lib import hub
 from libs.core.config_reader import ConfigReader
 from libs.rest.tracer import FormatRest
@@ -43,6 +45,11 @@ class TracePath(object):
         self.mydomain = self.config.interdomain.my_domain
 
     def get_init_switch(self):
+        """
+        
+            Returns:
+
+        """
         dpid = self.init_entries['trace']['switch']['dpid']
         return self.switches.get_switch(dpid, by_name=True)
 
@@ -171,6 +178,17 @@ class TracePath(object):
         return 0
 
     def trace_interdomain(self, switch, neighbor_color, entries, in_port):
+        """
+        
+            Args:
+                switch: 
+                neighbor_color: 
+                entries: 
+                in_port: 
+    
+            Returns:
+
+        """
         # Inter-domain operations start here...
         # Rewrite trace
         print('Inter-Domain Trace Started!')

@@ -1,0 +1,50 @@
+
+# REST:
+
+- REST/list_flows for OpenFlow 1.3
+
+- REST/stats for ports
+
+- REST/tracing: move sdntraceREST methods to libs.rest
+
+# Topology
+
+- Make sure PortStatus trigger topology change
+
+# Consistency
+
+- Delete old colored flows
+
+- Fix Cookies
+
+# Configuration
+
+- Make sure all configurations are being used
+
+- Use color_field from configuration
+
+# Documentations
+
+- Finish docs/examples for both intra and interdomain tests
+
+- Document web configuration
+
+- Document project and configuration
+
+- Document all modules, classes and methods
+
+# Others
+
+- Automate tests
+
+- Handle all TODOs
+
+- Create a Docker image with Mininet, ofp_sniffer and SDNTrace
+
+- Move prints to logging.logger
+
+- Create debugging logs
+
+- Control Plane tracing ?
+
+- Migrate to Python 3

@@ -26,10 +26,8 @@ class SDNTrace(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(SDNTrace, self).__init__(*args, **kwargs)
-
+        # Configuration File
         self.config = ConfigReader()
-        # List of received PacketIn non-LLDP
-        # self.trace_pktIn = []
         # Topology
         self.switches = Switches()
         self.links = Links()
@@ -41,7 +39,6 @@ class SDNTrace(app_manager.RyuApp):
         self.tracer = TraceManager()
         print('SDNTrace Ready!')
 
-    # Event Listeners
     @set_ev_cls(event.EventSwitchEnter)
     def get_topology_data(self, ev):
         """
@@ -74,7 +71,6 @@ class SDNTrace(app_manager.RyuApp):
             Args:
                 ev: PortStatus received
         """
-        # TODO: Trigger topology change
         switch = self.switches.get_switch(ev.msg.datapath)
         switch.port_status(ev)
 

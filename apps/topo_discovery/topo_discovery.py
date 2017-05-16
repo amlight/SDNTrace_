@@ -1,3 +1,8 @@
+"""
+    
+"""
+
+
 from ryu.lib import hub
 from libs.core.singleton import Singleton
 from libs.core.config_reader import ConfigReader
@@ -7,6 +12,9 @@ from libs.topology.links import Links
 
 
 class TopologyDiscovery(object):
+    """
+    
+    """
 
     __metaclass__ = Singleton
 
@@ -19,6 +27,11 @@ class TopologyDiscovery(object):
         self._topology = None
 
     def _set_active(self):
+        """
+        
+            Returns:
+
+        """
         if self.config.topo.activate == 'on':
             print('Topology Discovery App activated')
             return True
@@ -30,8 +43,6 @@ class TopologyDiscovery(object):
         """
             Keeps looping self.switches every PACKET_OUT_INTERVAL seconds
             Send a packet_out w/ LLDP to every port found
-            Args:
-                self
         """
         if self.active:
             vlan = self.config.topo.vlan_discovery
@@ -110,7 +121,13 @@ class TopologyDiscovery(object):
         self._topology = switches
 
     def __str__(self):
+        """
+            Has usage?
+        """
         print(self._topology)
 
     def get_topology(self):
+        """
+            Has usage?
+        """
         return self._topology

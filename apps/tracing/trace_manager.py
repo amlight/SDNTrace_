@@ -1,6 +1,8 @@
 """
     Trace Manager Class
 """
+
+
 import urllib2
 import json
 from ryu.lib import hub
