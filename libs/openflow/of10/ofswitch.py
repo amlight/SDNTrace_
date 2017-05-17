@@ -1,6 +1,8 @@
 """
     OpenFlow 1.0 switch class
 """
+
+
 from ryu.ofproto import ether
 from ryu.lib.packet import lldp
 from ryu.lib import ip, addrconv
@@ -169,7 +171,6 @@ class OFSwitch10(OFSwitch):
                 return False
 
         if not flow.wildcards & ofp.OFPFW_DL_SRC:
-            # print('Flow %s, pkt %s' % (flow.dl_src, eth.src))
             if flow.dl_src != addrconv.mac.text_to_bin(eth.src):
                 return False
 

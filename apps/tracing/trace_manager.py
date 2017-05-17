@@ -25,11 +25,7 @@ class TraceManager(object):
 
     def __init__(self):
         """
-            Initialization of the TraceManagre class
-        Args:
-            sdntrace_class: the main SDNTrace class
-            config: configuration file with interdomain
-                    information
+            Initialization of the TraceManager class
         """
         self.switches = Switches()
         self.config = ConfigReader()
@@ -72,8 +68,6 @@ class TraceManager(object):
         """
             Process the configuration file and update all configs
             variables (my_domain, trace_interval, neighbors and borders
-        Args:
-            config: configuration file
         """
         self._trace_interval = self.config.trace.run_trace_interval
         self._my_domain = self.config.interdomain.my_domain
@@ -162,6 +156,8 @@ class TraceManager(object):
         Args:
             trace_id: trace ID
             result: trace result generated using ./libs/core/rest/tracer
+            forward: if trace started in another domain, notify it of
+                results
         """
         self._results_queue[trace_id] = result
 
@@ -269,7 +265,7 @@ class TraceManager(object):
         trace_id = int(trace_id)
         try:
             return self._results_queue[trace_id]
-        except:
+        except (ValueError, KeyError):
             return 0
 
     def get_results(self):

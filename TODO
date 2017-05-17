@@ -1,4 +1,10 @@
 
+# Fix
+
+- Total time
+
+- Protocol para informar o status do trace
+
 # REST:
 
 - REST/list_flows for OpenFlow 1.3
@@ -8,6 +14,8 @@
 - REST/tracing: move sdntraceREST methods to libs.rest
 
 # Topology
+
+- Signals (done on May 17th)
 
 - Make sure PortStatus trigger topology change
 

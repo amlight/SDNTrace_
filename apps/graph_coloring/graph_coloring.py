@@ -46,6 +46,7 @@ class GraphColoring(object):
             Delete old flows
             Then push new flows
         """
+        # TODO: Break this method into smaller ones
         colors = self.define_colors(self.switches.get_switches())
         # Compare received colors with self.old_colors
         # If the same, ignore

@@ -10,6 +10,7 @@ from libs.openflow.port_speed import get_speed_name
 from libs.topology.link import Link
 # from libs.topology.switches import Switches
 import libs.topology.switches
+from libs.core.queues import topology_change
 
 
 class OFSwitch(object):
@@ -141,6 +142,7 @@ class OFSwitch(object):
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
         self.push_flow(datapath, 0, 1, ofproto.OFPFC_ADD, match, actions)
 
+    @topology_change
     def port_status(self, ev):
         """
             Process OFP_Port_Status
@@ -256,7 +258,6 @@ class OFSwitch(object):
                 it means it is a topology discovery packet
                 if content is not, it COULD be a trace file
             Args:
-                obj: SDNTrace object
                 ev: event
                 links: List Class
             Returns:

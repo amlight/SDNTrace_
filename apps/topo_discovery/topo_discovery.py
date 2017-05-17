@@ -9,6 +9,8 @@ from libs.core.config_reader import ConfigReader
 from libs.topology.switches import Switches
 from apps.topo_discovery.lldp_helper import prepare_lldp_packet
 from libs.topology.links import Links
+from libs.core.queues import topology_refresher_queue
+from libs.core.signals import called_on
 
 
 class TopologyDiscovery(object):
@@ -55,6 +57,15 @@ class TopologyDiscovery(object):
                             switch.send_packet_out(port, pkt.data, lldp=True)
                 hub.sleep(self.config.topo.packet_out_interval)
 
+    @staticmethod
+    @called_on(topology_refresher_queue)
+    def _listen_for_topology_changes():
+        """
+            Refresh the topology.
+            TODO: remove remove staticmethod
+        """
+        TopologyDiscovery()._update_topology()
+
     def handle_packet_in_lldp(self, link):
         """
             Once a LLDP + PacketIn is received, add the discovered link,
@@ -93,7 +104,7 @@ class TopologyDiscovery(object):
             for neighbor in inter_names:
                 local = self.config.interdomain.get_local_sw(neighbor)
                 if local == sw_dpid:
-                    inter[sw_dpid][sw_port] = {'type':'interdomain',
+                    inter[sw_dpid][sw_port] = {'type': 'interdomain',
                                                'domain_name': neighbor}
 
         # Create the final dictionary with all switches and ports
@@ -105,26 +116,26 @@ class TopologyDiscovery(object):
             for port in switch.ports:
                 try:
                     switches[switch.name][port] = inter[switch.name][str(port)]
-                except:
+                except (KeyError, ValueError):
                     switches[switch.name][port] = {'type': 'host',
                                                    'host_name': 'no_name'}
 
         # Now, update the switches dictionary with the link info from the
         #   SDNTrace.links, which is the Links class.
         for link in self.links.links:
-            switches[link.switch_a][link.port_a] = { 'type': 'link',
-                                                     'neighbor_dpid': link.switch_z,
-                                                     'neighbor_port': link.port_z}
-            switches[link.switch_z][link.port_z] = { 'type': 'link',
-                                                     'neighbor_dpid': link.switch_a,
-                                                     'neighbor_port': link.port_a}
+            switches[link.switch_a][link.port_a] = {'type': 'link',
+                                                    'neighbor_dpid': link.switch_z,
+                                                    'neighbor_port': link.port_z}
+            switches[link.switch_z][link.port_z] = {'type': 'link',
+                                                    'neighbor_dpid': link.switch_a,
+                                                    'neighbor_port': link.port_a}
         self._topology = switches
 
-    def __str__(self):
-        """
-            Has usage?
-        """
-        print(self._topology)
+    # def __str__(self):
+    #     """
+    #         Has usage?
+    #     """
+    #     print(self._topology)
 
     def get_topology(self):
         """

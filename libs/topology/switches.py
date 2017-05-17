@@ -1,26 +1,34 @@
+"""
+
+"""
+
 
 from libs.core.singleton import Singleton
 from libs.openflow.new_switch import new_switch
 from libs.topology.links import Links
+from libs.core.queues import topology_change
 
 
 class Switches:
-
+    """
+    
+    """
     __metaclass__ = Singleton
 
     def __init__(self):
         self._switches = dict()
         self.links = Links()
 
-    def __setitem__(self, key, value):
-        self._switches[key] = value
-
-    def __getitem__(self, key):
-        return self._switches[key]
+    # def __setitem__(self, key, value):
+    #     self._switches[key] = value
+    #
+    # def __getitem__(self, key):
+    #     return self._switches[key]
 
     def __len__(self):
         return len(self._switches)
 
+    @topology_change
     def add_switch(self, ev):
         """
             Add the new switch to the self.switches dict
@@ -29,6 +37,7 @@ class Switches:
         """
         self._switches[ev.msg.datapath_id] = new_switch(ev)
 
+    @topology_change
     def del_switch(self, ev):
         """
             In case of DEAD_DISPATCH, remove the switch from

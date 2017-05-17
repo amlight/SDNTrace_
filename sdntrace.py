@@ -2,7 +2,6 @@
     This is the core of the SDNTrace
     Here all OpenFlow events are received and handled
 """
-
 from ryu import utils
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -18,6 +17,7 @@ from libs.topology.switches import Switches
 from apps.tracing.trace_manager import TraceManager
 from apps.topo_discovery.topo_discovery import TopologyDiscovery
 from apps.graph_coloring.graph_coloring import GraphColoring
+from libs.core.queues import packet_in_queue
 
 
 class SDNTrace(app_manager.RyuApp):
@@ -46,7 +46,7 @@ class SDNTrace(app_manager.RyuApp):
             detected after EventOFPSwitchFeatures, so we just
             update the switch address.
         Args:
-            ev: EventSwitchEnter
+            ev: EventSwitchEnter received
         """
         self.switches.update_switch_address(ev.switch.dp)
 
@@ -59,7 +59,7 @@ class SDNTrace(app_manager.RyuApp):
             When instantiating a switch, clears old colored flows
             and adds the default LLDP flow
             Args:
-                ev: FeatureReply received
+                ev: EventOFPSwitchFeatures received
         """
         self.switches.add_switch(ev)
 
@@ -69,7 +69,7 @@ class SDNTrace(app_manager.RyuApp):
             Process OFP_Port_Status
             Add or Remove ports from OFSwitch.ports
             Args:
-                ev: PortStatus received
+                ev: EventOFPPortStatus received
         """
         switch = self.switches.get_switch(ev.msg.datapath)
         switch.port_status(ev)
@@ -89,12 +89,16 @@ class SDNTrace(app_manager.RyuApp):
             Process PacketIn
             PacketIN messages are used for topology discovery and traces
             Args:
-                ev: PacketIn message
+                ev: EventOFPPacketIn message
         """
         switch = self.switches.get_switch('%016x' % ev.msg.datapath.id, by_name=True)
-        if isinstance(switch, bool):
-            print('PacketIn received for a switch that was not instantiated!!')
-            return
+
+        # packet_in_queue.send(ptype=action, content=result, event=ev.msg, in_port=in_port,
+        #                      switch=switch)
+
+        # if isinstance(switch, bool):
+        #    print('PacketIn received for a switch that was not instantiated!!')
+        #    return
 
         action, result, in_port = switch.process_packetIn(ev, self.links)
 
@@ -109,7 +113,7 @@ class SDNTrace(app_manager.RyuApp):
         """
             Print Error Received. Useful for troubleshooting
             Args:
-                ev: event
+                ev: EventOFPErrorMsg
         """
         print('OFPErrorMsg received: type=0x%02x code=0x%02x message=%s' %
               (ev.msg.type, ev.msg.code, utils.hex_array(ev.msg.data)))
@@ -132,7 +136,7 @@ class SDNTrace(app_manager.RyuApp):
             Multipart Port Stats Description
             Only used for OF1.3
             Args:
-                ev: FeatureReply received
+                ev: EventOFPPortDescStatsReply received
         """
         switch = self.switches.get_switch(ev.msg.datapath)
         switch.process_port_desc_stats_reply(ev)
@@ -143,7 +147,7 @@ class SDNTrace(app_manager.RyuApp):
             Multipart Description Stats Description
             Only used for OF1.3
             Args:
-                ev: FeatureReply received
+                ev: EventOFPDescStatsReply received
         """
         switch = self.switches.get_switch(ev.msg.datapath)
         switch.process_description_stats_reply(ev)
