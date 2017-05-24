@@ -101,6 +101,11 @@ var MOCK_JSON_SDNTRACE_SWITCH_PORTS = '{' +
     '"4": {"speed": "10GB_FD", "name": "s1-eth4", "port_no": 4, "status": "up"}' +
     '}';
 
+
+var MOCK_JSON_FLOWS = '{"number_flows": 4, "flows": [{"actions": [{"max_len": 65509, "type": "OFPActionOutput(0)", "port": 65533}], "idle_timeout": 0, "cookie": 2000002, "priority": 50000, "hard_timeout": 0, "byte_count": 0, "duration_nsec": 6000000, "packet_count": 0, "duration_sec": 100, "table_id": 0, "match": {"wildcards": 3678459, "dl_src": "ee:ee:ee:ee:ee:02"}}, {"actions": [{"type": "OFPActionStripVlan(3)"}, {"max_len": 0, "type": "OFPActionOutput(0)", "port": 1}], "idle_timeout": 0, "cookie": 0, "priority": 32768, "hard_timeout": 0, "byte_count": 0, "duration_nsec": 906000000, "packet_count": 0, "duration_sec": 142, "table_id": 0, "match": {"wildcards": 3678460, "dl_vlan": 200, "in_port": 2}}, {"actions": [{"type": "OFPActionVlanVid(1)", "vlan_vid": 200}, {"max_len": 0, "type": "OFPActionOutput(0)", "port": 2}], "idle_timeout": 0, "cookie": 0, "priority": 32768, "hard_timeout": 0, "byte_count": 0, "duration_nsec": 933000000, "packet_count": 0, "duration_sec": 142, "table_id": 0, "match": {"wildcards": 3678462, "in_port": 1}}, {"actions": [{"max_len": 65509, "type": "OFPActionOutput(0)", "port": 65533}], "idle_timeout": 0, "cookie": 0, "priority": 1, "hard_timeout": 0, "byte_count": 2760, "duration_nsec": 492000000, "packet_count": 46, "duration_sec": 112, "table_id": 0, "match": {"wildcards": 3678437, "dl_type": 35020, "dl_dst": "01:80:c2:00:00:0e", "dl_vlan": 100}}], "dpid": "0000000000000001"}';
+
+
+
 var SPEED_100GB = 100000000000;
 var SPEED_10GB = 10000000000;
 var SPEED_1GB = 1000000000;
@@ -123,6 +128,7 @@ var DISTANCE = {'domain': 10 * SIZE['switch'],
                 'port': SIZE['switch'] + 16,
                 'host': 10 * SIZE['switch']};
 
+
 /**
 This is the class that will create a graph.
 */
@@ -134,7 +140,8 @@ var ForceGraph = function(p_selector, p_data) {
 
 
     // Define contextual menu over the circles
-    var menu = function(data) {
+    var node_context_menu = function(data) {
+        forcegraph.exit_highlight();
         return [
             {
                 title: function(d) {
@@ -164,6 +171,16 @@ var ForceGraph = function(p_selector, p_data) {
 //                title: 'Total traffic: 000',
 //                action: function() {}
 //            },
+            {
+
+                title: 'Flows',
+                action: function(elm, d, i) {
+                    forcegraph.set_switch_flow_focus_panel_data(d);
+
+                    sdnflowtable.setData(d.data.dpid, d.data.flow_pivot);
+                    sdnflowtable.dialogOpen();
+                }
+            },
             {
                 title: 'Trace',
                 action: function(elm, d, i) {
@@ -293,6 +310,11 @@ var ForceGraph = function(p_selector, p_data) {
     var link_label = container.append("g").selectAll("text");
 
 
+    // Hide node context menu.
+    var _hide_context_menu = function() {
+        $('.d3-context-menu').hide();
+    }
+
     var _nodeDragstarted = function (d) {
         if (d.type == 'port') { return " node_port"; }
         if (!d3.event.active) force.alphaTarget(0.3).restart()
@@ -308,6 +330,8 @@ var ForceGraph = function(p_selector, p_data) {
                   return "translate(" + xx + ", " + yy + ")";
                 });
         }
+        // if node context menu is open, close it.
+        _hide_context_menu();
     }
 
     var _nodeDragged = function (d) {
@@ -389,6 +413,7 @@ var ForceGraph = function(p_selector, p_data) {
         if(d && d.data) {
             $('#port_panel_info').hide();
             $('#switch_to_panel_info').hide();
+            $('#switch_flows_panel').hide();
             $('#domain_panel_info').hide();
 
             _set_switch_focus_panel_data(d);
@@ -417,6 +442,7 @@ var ForceGraph = function(p_selector, p_data) {
     // focus highlight (on node mousedown)
     function set_port_focus(d) {
         $('#domain_panel_info').hide();
+        $('#switch_flows_panel').hide();
 
         // Set data info panel
         if(d && d.data) {
@@ -446,6 +472,8 @@ var ForceGraph = function(p_selector, p_data) {
             $('#switch_to_panel_info').hide();
             // hide port info
             $('#port_panel_info').hide();
+
+            $('#switch_flows_panel').hide();
 
             // show domain info
             _set_domain_focus_panel_data(d);
@@ -484,7 +512,17 @@ var ForceGraph = function(p_selector, p_data) {
         } else {
             $('#switch_panel_info_name').hide();
         }
+
         $('#switch_panel_info_flows_value').html(d.data.number_flows);
+        if (d.data.number_flows && d.data.number_flows > 0) {
+            // Open flow panel clicking the flow number
+            $('#switch_panel_info_flows').css('cursor', 'pointer');
+            $('#switch_panel_info_flows').css('text-decoration', 'underline');
+            $('#switch_panel_info_flows').click(function() {
+                forcegraph.set_switch_flow_focus_panel_data(d);
+            });
+        }
+
 
         if (d.data.domain) {
             $('#switch_panel_info_domain').show();
@@ -497,6 +535,72 @@ var ForceGraph = function(p_selector, p_data) {
         $('#switch_panel_info_switch_vendor_value').html(d.data.switch_vendor);
         $('#switch_panel_info_ip_address_value').html(d.data.ip_address);
         $('#switch_panel_info_color_value').html(d.data.switch_color);
+    }
+
+    /** use with set_switch_focus to set the lateral panel data  */
+    this.set_switch_flow_focus_panel_data = function(d) {
+        // Helper function to create <li> tags to display flow attributes
+        var _create_li = function(d_ul, label, value) {
+            var d_ul_li = $('<li></li>');
+            d_ul.append(d_ul_li);
+            d_ul_li.append($('<span>' + label + ': </span>'));
+            d_ul_li.append($('<span>' + value + '</span>'));
+        }
+
+        // display panel
+        $('#switch_flows_panel').show();
+        // animation to open panel
+        $('#switch_flows_panel_collapse').collapse("show");
+        // fill html content
+        $('#switch_flows_panel_dpid_value').html(d.data.dpid);
+        var name = d.data.get_name();
+
+        var _flow_stat = d.data.flow_stat;
+
+        // Clear panel
+        $('#switch_flows_panel_collapse > .panel-body').empty();
+        // Prepare to create panel content
+        var d = $('<div></div>');
+        $('#switch_flows_panel_collapse > .panel-body').append(d);
+
+
+        for(var x in _flow_stat.flows) {
+            var flowObj = _flow_stat.flows[x];
+
+            // Flow actions
+            var actionStr = '<table class="table-bordered table-condensed"><thead><tr><th>Type</th><th>Max Len.</th><th>Port</th></tr></thead><tbody>';
+            for(var y in flowObj.actions) {
+                var actionObj = flowObj.actions[y];
+                actionStr += '<tr><td>' + actionObj.type + '</td><td>' + (actionObj.max_len || '') + '</td><td>' + (actionObj.port || '') + '</td></tr>';
+            }
+            actionStr += '</tbody></table><br>';
+            d.append($(actionStr));
+
+            // Flow attributes
+            var d_ul = $('<ul></ul>');
+            d.append(d_ul);
+
+            _create_li(d_ul, 'Idle timeout', flowObj.idle_timeout);
+            _create_li(d_ul, 'Cookie', flowObj.cookie);
+            _create_li(d_ul, 'Priority', flowObj.priority);
+            _create_li(d_ul, 'Hard timeout', flowObj.hard_timeout);
+            _create_li(d_ul, 'Byte count', flowObj.byte_count);
+            _create_li(d_ul, 'Duration (ns)', flowObj.duration_nsec);
+            _create_li(d_ul, 'Packet count', flowObj.packet_count);
+            _create_li(d_ul, 'Duration (s)', flowObj.duration_sec);
+            _create_li(d_ul, 'Table ID', flowObj.table_id);
+
+            d_ul = $('<ul></ul>');
+            d.append(d_ul);
+
+            // Flow matches
+            _create_li(d_ul, '<u>Match</u>', '');
+            if(flowObj.match.wildcards) { _create_li(d_ul, 'wildcards', flowObj.match.wildcards || ''); }
+            if(flowObj.match.dl_src) { _create_li(d_ul, 'dl_src', flowObj.match.dl_src || ''); }
+            if(flowObj.match.in_port) { _create_li(d_ul, 'in_port', flowObj.match.in_port || ''); }
+
+            d.append($("<hr>"));
+        }
     }
 
     function linkArc(d) {
@@ -630,13 +734,14 @@ var ForceGraph = function(p_selector, p_data) {
                     if (d.type == 'port') { return "none"; }
                     return "";
                 })
-                .on('contextmenu', d3.contextMenu(menu)) // attach menu to element
+                .on('contextmenu', d3.contextMenu(node_context_menu)) // attach menu to element
                 .on("mouseover", function(d) {
                     if (d.type == 'port') { return; }
                     if (d.type == 'switch') { set_highlight(d); }
                 })
                 .on("mousedown", function(d) {
                     d3.event.stopPropagation();
+                    console.log('mousedown');
                     if (d.type == 'port') {
                         set_port_focus(d);
                     } else if (d.type == 'switch') {
@@ -714,9 +819,6 @@ function radius_positioning(cx, cy, x, y) {
   return [new_x, new_y];
 }
 
-var forcegraph = '';
-var sdntopology = '';
-var sdncolor = '';
 
 /**
  * SDNColor utility to transform SDN color codes to CSS names.
@@ -810,7 +912,7 @@ var SDNTopology = function() {
                 switch_obj.openflow_version = jsonObj[x].openflow_version;
                 switch_obj.switch_vendor = jsonObj[x].switch_vendor;
                 switch_obj.ip_address = jsonObj[x].ip_address;
-                switch_obj.number_flows = jsonObj[x].number_flows;
+                //switch_obj.number_flows = jsonObj[x].number_flows;
 
                 sdntopology.switches.push(switch_obj);
             }
@@ -855,6 +957,8 @@ var SDNTopology = function() {
                     info_callback = p_callback;
                 }
                 sdntopology.call_sdntrace_get_switch_info(jsonObj[x], info_callback);
+
+                sdntopology.call_sdntrace_get_switch_flows(jsonObj[x]);
             }
 
             // sort
@@ -908,9 +1012,10 @@ var SDNTopology = function() {
             switch_obj.openflow_version = jsonObj.openflow_version;
             switch_obj.switch_vendor = jsonObj.switch_vendor;
             switch_obj.ip_address = jsonObj.ip_address;
-            switch_obj.number_flows = jsonObj.number_flows;
+            //switch_obj.number_flows = jsonObj.number_flows;
 
             sdntopology.call_sdntrace_get_switch_ports(p_dpid, p_callback);
+
 
             if (p_callback != null) {
                 console.log('call_sdntrace_get_switch_info callback');
@@ -946,6 +1051,130 @@ var SDNTopology = function() {
             });
         }
     }
+    this.call_sdntrace_get_switch_flows = function(p_dpid, callback=null) {
+        var ajax_done = function(jsonObj, p_callback) {
+            var switch_obj = sdntopology.get_node_by_id(p_dpid);
+
+            switch_obj.number_flows = jsonObj.number_flows;
+
+            switch_obj.flow_stat = {};
+
+            switch_obj.flow_stat.dpid = p_dpid;
+            switch_obj.flow_stat.flows = [];
+
+            for(var x in jsonObj.flows) {
+                var jsonFlow = jsonObj.flows[x];
+
+                var flow_1 = {};
+                flow_1.idle_timeout = jsonFlow.idle_timeout;
+                flow_1.cookie = jsonFlow.cookie;
+                flow_1.priority = jsonFlow.priority;
+                flow_1.hard_timeout = jsonFlow.hard_timeout;
+                flow_1.byte_count = jsonFlow.byte_count;
+                flow_1.duration_nsec = jsonFlow.duration_nsec;
+                flow_1.packet_count= jsonFlow.packet_count;
+                flow_1.duration_sec = jsonFlow.duration_sec;
+                flow_1.table_id = jsonFlow.table_id;
+
+                flow_1.actions = [];
+                for(var y in jsonFlow.actions) {
+                    var jsonAction = jsonFlow.actions[y];
+
+                    var flow_1_action_1 = {};
+                    flow_1_action_1.max_len = jsonAction.max_len;
+                    flow_1_action_1.type = jsonAction.type;
+                    flow_1_action_1.port = jsonAction.port;
+                    flow_1.actions.push(flow_1_action_1);
+                }
+
+                flow_1.match = {};
+                flow_1.match.wildcards = jsonFlow.match.wildcards;
+                flow_1.match.dl_src = jsonFlow.match.dl_src;
+                flow_1.match.in_port = jsonFlow.match.in_port;
+                switch_obj.flow_stat.flows.push(flow_1);
+            }
+
+            // TODO: test pivot table
+
+            switch_obj.flow_pivot = [];
+
+
+            for(var x in jsonObj.flows) {
+                var jsonFlow = jsonObj.flows[x];
+
+                var pivot = {};
+                pivot.dpid = p_dpid;
+
+                pivot.idle_timeout = jsonFlow.idle_timeout;
+                pivot.cookie = jsonFlow.cookie;
+                pivot.priority = jsonFlow.priority;
+                pivot.hard_timeout = jsonFlow.hard_timeout;
+                pivot.byte_count = jsonFlow.byte_count;
+                pivot.duration_nsec = jsonFlow.duration_nsec;
+                pivot.packet_count= jsonFlow.packet_count;
+                pivot.duration_sec = jsonFlow.duration_sec;
+                pivot.table_id = jsonFlow.table_id || '';
+
+                pivot.match__wildcards = jsonFlow.match.wildcards || '';
+                pivot.match__dl_src = jsonFlow.match.dl_src || '';
+                pivot.match__in_port = jsonFlow.match.in_port || '';
+
+                if (jsonFlow.actions) {
+                    for(var y in jsonFlow.actions) {
+                        var jsonAction = jsonFlow.actions[y];
+
+                        if(y > 0) {
+                            pivot.action__max_len = pivot.action__max_len +"<br>"+ (jsonAction.max_len || '--');
+                            pivot.action__type = pivot.action__type +"<br>"+ (jsonAction.type || '--');
+                            pivot.action__port = pivot.action__port +"<br>"+ (jsonAction.port || '--');
+                        } else {
+                            pivot.action__max_len = (jsonAction.max_len || '--');
+                            pivot.action__type = (jsonAction.type || '--');
+                            pivot.action__port = (jsonAction.port || '--');
+                        }
+
+
+                    }
+                }
+                switch_obj.flow_pivot.push(pivot);
+            }
+
+            if (p_callback != null) {
+                console.log('call_sdntrace_get_switch_info callback');
+                try {
+                    //callback();
+                }
+                catch(err) {
+                    console.log("Error callback function: " + callback);
+                    throw err;
+                }
+            }
+        }
+
+        // AJAX call
+        if (DEBUG) {
+            json = MOCK_JSON_FLOWS;
+            var jsonobj = $.parseJSON(json);
+
+            ajax_done(jsonobj, callback);
+        } else {
+            var jqxhr = $.ajax({
+                url:"/sdntrace/switches/" + p_dpid + "/flows",
+                dataType: 'json',
+                crossdomain:true,
+            }).done(function(json) {
+                ajax_done(json, callback);
+            })
+            .fail(function() {
+                console.log( "call_sdntrace_get_switch_info ajax error" );
+            })
+            .always(function() {
+                console.log( "call_sdntrace_get_switch_info ajax complete" );
+            });
+        }
+    }
+
+
 
     this.get_node_by_id = function(p_id) {
         /**
@@ -999,7 +1228,6 @@ var SDNTopology = function() {
      */
     this.call_sdntrace_get_topology = function(callback=null) {
         // hiding topology graphic panel
-        console.log('****************** START GET TOPOLOGY')
         $('#topology__canvas').hide();
 
         var ajax_done = function(json) {
@@ -1028,10 +1256,8 @@ var SDNTopology = function() {
                             var switch2 = Switch.clone_obj(_switch2);
 
                             if(isTopologyConnected(switch1, switch2)) {
-                                console.log('IS CONNECTED')
                                 linkObj = sdntopology.get_topology_link(switch1, switch2);
                             } else {
-                                console.log('NEW LINK')
                                 linkObj.node1 = switch1;
                                 linkObj.node2 = switch2;
 //
@@ -1041,7 +1267,6 @@ var SDNTopology = function() {
                             // creating switch ports from node1
                             var node1_port = _switch1.get_port_by_id(dpid1, port1);
                             if (node1_port == null) {
-                                console.log('CREATE PORT 1' + dpid1 + " "+port1);
                                 node1_port = new Port(dpid1, port1, port1, port1);
                                 linkObj.node1.ports.push(node1_port);
                             } else {
@@ -1052,7 +1277,6 @@ var SDNTopology = function() {
                             // creating switch ports from node2
                             var node2_port = _switch2.get_port_by_id(dpid2, port2);
                             if (node2_port == null) {
-                                console.log('CREATE PORT 2: ' + dpid2 + " "+port2);
                                 node2_port = new Port(dpid2, port2, port2, port2);
                                 linkObj.node2.ports.push(node2_port);
                             } else {
@@ -1066,7 +1290,6 @@ var SDNTopology = function() {
                             } else if(node2_port && node2_port.speed) {
                                 linkObj.speed = node2_port.speed;
                             }
-                            console.log(linkObj);
                         } else if (p_neighbor.type == "host") {
                             // Add new host node
                             var _host_label = "";
@@ -1425,245 +1648,6 @@ var SDNTopology = function() {
 
 }
 
-var Link = function() {
-    // Switch obj
-    this.node1 = null;
-    this.node2 = null;
-
-    // String
-    this.label1 = null;
-    this.label2 = null;
-
-    // String
-    this.label_num1 = null;
-    this.label_num2 = null;
-
-    // number. Bits per second.
-    this.speed = null;
-}
-
-/**
- * Switch representation.
- */
-var Switch = function(switch_id) {
-    this.id = switch_id;
-    this.dpid = switch_id; // datapath_id
-
-    this.name;
-    this.switch_color;
-    this.tcp_port
-    this.openflow_version;
-    this.switch_vendor;
-    this.ip_address;
-    this.number_flows;
-
-    this.n_ports;
-    this.n_tables;
-
-    this.ports = [];
-
-    this.domain; // if the switch belongs to an interdomain
-
-    /**
-     * Get switch fantasy name from configuration data.
-     */
-    this.get_name = function() {
-        if (this.name) {
-            return this.name;
-        }
-        if (typeof SDNLG_CONF != 'undefined') {
-            var name = SDNLG_CONF.dict[this.id];
-            if (name != undefined) {
-                return name;
-            }
-        }
-        return "";
-    }
-
-    /**
-     * Get switch fantasy name from configuration data.
-     * If there is no name return the switch ID.
-     */
-    this.get_name_or_id = function() {
-        if (this.name) {
-            return this.name;
-        }
-        if (typeof SDNLG_CONF != 'undefined') {
-            var name = SDNLG_CONF.dict[this.id];
-            if (name != undefined) {
-                return name;
-            }
-        }
-        return this.id;
-    }
-
-    /**
-     * Get switch fantasy name from configuration data.
-     * Return verbose name as: <ID> - <NAME>
-     */
-    this.get_verbose_name = function() {
-        if (this.name) {
-            return this.id + ' - ' + this.name;
-        }
-        if (typeof SDNLG_CONF != 'undefined') {
-            var name = SDNLG_CONF.dict[this.id];
-            if (name != undefined) {
-                return this.id + ' - ' + name;
-            }
-        }
-        return this.id;
-    }
-
-    /**
-     * Get switch fantasy name from configuration data.
-     * Return verbose name to be used on vis.js: <ID>\n<NAME>
-     */
-    this.get_node_name = function() {
-        if (this.name) {
-            return this.name;
-        }
-
-        if (typeof SDNLG_CONF != 'undefined') {
-            var name = SDNLG_CONF.dict[this.id];
-            if (name != undefined) {
-                return name;
-            }
-        }
-        return this.id;
-    }
-
-    this.get_port_by_id = function(node_id, p_id) {
-        var p_id = node_id +"_"+ p_id;
-
-        for (var x in this.ports){
-            if(this.ports[x].id == p_id) {
-                return this.ports[x];
-            }
-        }
-        return null;
-    }
-
-    this.get_d3js_data = function() {
-        node_id = this.id;
-        node_obj = {id: node_id, dpid: node_id, name: node_id, data:this, label:this.get_node_name(), physics:true, mass:2, stroke_width:1, type:"switch", x:300, y:300};
-        // Trace coloring
-        if (typeof(node_obj.color)==='undefined') {
-            node_obj.background_color = sdncolor.NODE_COLOR[node_obj.type];
-        }
-        return node_obj;
-    }
-}
-// Return switch id if the class is used with strings
-Switch.prototype.toString = function(){ return this.id; };
-Switch.clone_obj = function(p_sw) {
-    var return_switch = new Switch(p_sw.id);
-
-    return_switch.id = p_sw.id;
-    return_switch.dpid = p_sw.dpid;
-    return_switch.name = p_sw.name;
-    return_switch.switch_color = p_sw.switch_color;
-    return_switch.tcp_port = p_sw.tcp_port;
-    return_switch.openflow_version = p_sw.openflow_version;
-    return_switch.switch_vendor = p_sw.switch_vendor;
-    return_switch.ip_address = p_sw.ip_address;
-    return_switch.number_flows = p_sw.number_flows;
-    return_switch.n_ports = p_sw.n_ports;
-    return_switch.n_tables = p_sw.n_tables;
-    return_switch.ports = p_sw.ports;
-    return_switch.domain = p_sw.domain;
-
-    return return_switch;
-};
-
-/**
- * Switch port representation.
- */
-var Port = function(node_id, port_id, number, label, speed, uptime, status) {
-    this.id = node_id + "_" + port_id;
-    this.number = number;
-    this.label = label;
-    this.speed = speed;
-    this.uptime = uptime;
-    this.status = status;
-
-    this.get_d3js_data = function() {
-        node_id = this.id;
-        node_obj = {id: node_id, name: null, data:this, label:this.label, physics:true, from_sw:'', to_sw:'', mass:2, stroke_width:1, type:"port"};
-        node_obj.background_color = sdncolor.NODE_COLOR[node_obj.type];
-
-        return node_obj;
-    }
-
-}
-// Return switch port id if the class is used with strings
-Port.prototype.toString = function(){ return this.id; };
-
-/**
- * Domain representation.
- */
-var Domain = function(domain_id, label) {
-    this.id = domain_id;
-    this.label = label;
-
-    this.get_d3js_data = function() {
-        node_obj = {id: this.id, name: null, data:this, label:this.label, physics:true, mass:2, stroke_width:1, type:"domain", x:300, y:300};
-        node_obj.background_color = sdncolor.NODE_COLOR[node_obj.type];
-
-        return node_obj;
-    }
-
-    this.get_name = function() {
-        return this.label;
-    }
-}
-Domain.create_id = function(p_domain_name) {
-    /**
-    * Create an Domain ID based on the domain_name.
-    */
-    if (p_domain_name == null || p_domain_name == "") {
-        console.log("[ERROR] Domain.create_id p_domain_name is empty.");
-        throw "[ERROR] Domain.create_id p_domain_name is empty.";
-    }
-
-    var domain_id = p_domain_name.replace(" ", "_");
-
-    return "domain_" + domain_id;
-}
-
-/**
- * Host representation.
- */
-var Host = function(node_id, port_id, label) {
-    this.id = Host.create_id(node_id, port_id);
-    this.label = label;
-
-    this.get_d3js_data = function() {
-        node_obj = {id: this.id, name: null, data:this, label:this.label, physics:true, mass:2, stroke_width:1, type:"host", x:300, y:300};
-        node_obj.background_color = sdncolor.NODE_COLOR[node_obj.type];
-
-        return node_obj;
-    }
-
-    this.get_name = function() {
-        return this.label;
-    }
-}
-Host.create_id = function(node_id, port_id) {
-    if (node_id == null || node_id == "") {
-        console.log("[ERROR] Host.create_id node_id empty.");
-        throw "[ERROR] Host.create_id node_id empty.";
-    }
-    if (port_id == null || port_id == "") {
-        console.log("[ERROR] Host.create_id port_id empty.");
-        throw "[ERROR] Host.create_id port_id empty.";
-    }
-
-    return "host_" + node_id + "_" + port_id;
-}
-
-// Return switch port id if the class is used with strings
-Port.prototype.toString = function(){ return this.id; };
-
 var D3JS = function() {
     this.nodes = null;
     this.edges = null;
@@ -2017,7 +2001,15 @@ var D3JS = function() {
     }
 }
 
-/* Initial data lod */
+
+
+
+var forcegraph = '';
+var sdntopology = '';
+var sdncolor = '';
+var sdnflowtable = '';
+
+/* Initial data load */
 /* Call ajax to load switches and topology */
 var _initial_data_load = function() {
     // Clearing contents
@@ -2099,8 +2091,12 @@ $(function() {
     };
     forcegraph = new ForceGraph(selector,data);
 
+    sdnflowtable = new SdnFlowTable();
+
     // initial data load (switch list, topology, colors)
     _initial_data_load();
+
+
 });
 
 

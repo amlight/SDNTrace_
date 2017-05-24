@@ -1,6 +1,8 @@
 {% extends "layout.html" %}
 {% block head %}
   {{ super() }}
+    <script src="{{ url_for('static', filename='js/domain.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/sdnflowtable.js') }}"></script>
     <script src="{{ url_for('static', filename='js/topology.js') }}"></script>
     <script src="{{ url_for('static', filename='js/trace.js') }}"></script>
     <link href="{{ url_for('static', filename='css/topology.css') }}" rel="stylesheet">
@@ -114,7 +116,8 @@ jQuery(function($) {
                               </div>
                             </div>
                         </div>
-                        <div id="switch_panel_info" style="display:none;" class="panel panel-default">
+
+<div id="switch_panel_info" style="display:none;" class="panel panel-default">
                           <div class="panel-heading">
                               <h4 class="panel-title">
                                 <a data-toggle="collapse" href="#switch_panel_info_collapse">Switch</a>
@@ -136,6 +139,34 @@ jQuery(function($) {
                                     <li id="switch_panel_info_color"><span>Color: </span><span id="switch_panel_info_color_value"></span></li>
                                   </ul>
                                 </div>
+                              </div>
+                            </div>
+                        </div>
+
+                        <div id="switch_flows_panel" style="display:none;" class="panel panel-default">
+                          <div class="panel-heading">
+                              <h4 class="panel-title">
+                                <a data-toggle="collapse" href="#switch_flows_panel_collapse">Switch flows</a>
+                              </h4>
+                          </div>
+                          <div id="switch_flows_panel_collapse" class="panel-collapse collapse">
+                              <div class="panel-body">
+                                <!--<div>-->
+                                  <!--<ul>-->
+                                    <!--<li id="switch_flows_panel_idle_timeout"><span>Idle timeout: </span><span id="switch_flows_panel_idle_timeout_value"></span></li>-->
+                                    <!--<li id="switch_flows_panel_cookie"><span>Cookie: </span><span id="switch_flows_panel_cookie_value"></span></li>-->
+                                    <!--<li id="switch_flows_panel_priority"><span>Priority: </span><span id="switch_flows_panel_priority_value"></span></li>-->
+                                    <!--<li id="switch_flows_panel_hard_timeout"><span>Hard timeout: </span><span id="switch_flows_panel_hard_timeout_value"></span></li>-->
+                                    <!--<li id="switch_flows_panel_byte_count"><span>Byte count: </span><span id="switch_flows_panel_byte_count_value"></span></li>-->
+
+                                    <!--<li id="switch_flows_panel_duration_nsec"><span>Duration (ns): </span><span id="switch_flows_panel_duration_nsec_value"></span></li>-->
+                                    <!--<li id="switch_flows_panel_packet_count"><span>Packet count: </span><span id="switch_flows_panel_packet_count_value"></span></li>-->
+
+                                    <!--<li id="switch_flows_panel_duration_sec"><span>Duration (s): </span><span id="switch_flows_panel_duration_sec_value"></span></li>-->
+                                    <!--<li id="switch_flows_panel_table_id"><span>Table ID: </span><span id="switch_flows_panel_table_id_value"></span></li>-->
+                                    <!--<li id="switch_flows_panel_match"><span>Match: </span><span id="switch_flows_panel_match_value"></span></li>-->
+                                  <!--</ul>-->
+                                <!--</div>-->
                               </div>
                             </div>
                         </div>
@@ -425,4 +456,8 @@ jQuery(function($) {
         </div>
     </div>
 </div>
+
+
+
 {% endblock %}
+{% include 'svg_switch.html' %}
