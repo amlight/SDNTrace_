@@ -16,8 +16,8 @@ var SdnFlowTable = function() {
             headerFilterPlaceholder:"Filter...",
             columns:[
                 {id: 1, title:"in_port", field:"match__in_port", sorter:"string", width:"85", headerFilter:"number"},
-                {id: 2, title:"priority", field:"priority", width:"85", sorter:"number", headerFilter:"input"},
-                {id: 3, title:"cookie", field:"cookie", width:"85", headerFilter:"input"},
+                {id: 2, title:"cookie", field:"cookie", width:"85", headerFilter:"input"},
+                {id: 3, title:"priority", field:"priority", width:"85", sorter:"number", headerFilter:"input"},
                 {//create column Match group
                     id: 10,
                     title:"Match",
@@ -79,20 +79,7 @@ var SdnFlowTable = function() {
         $("#flow_stats_table").tabulator("toggleColumn","empty");
 
         $("#flow_stats_table").tabulator("setFilter", [
-            {field:"priority", type:"like", value:''},
-            {field:"cookie", type:"like", value:''},
             {field:"match__in_port", type:"=", value:''},
-            {field:"match__dl_src", type:"like", value:''},
-            {field:"action__type", type:"like", value:''},
-            {field:"action__max_len", type:"like", value:''},
-            {field:"action__port", type:"like", value:''},
-            {field:"byte_count", type:"like", value:''},
-            {field:"packet_count", type:"like", value:''},
-            {field:"hard_timeout", type:"like", value:''},
-            {field:"idle_timeout", type:"like", value:''},
-//            {field:"duration_nsec", type:"like", value:''},
-            {field:"duration_sec", type:"like", value:''},
-            {field:"table_id", type:"like", value:''}
         ]);
     }
 

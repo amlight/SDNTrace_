@@ -271,6 +271,7 @@ text {
 }
 #sdn_trace_form {
     width: 100%;
+    display:none; /* initial display. It is a dialog. */
 }
 #sdn_trace_form .row {
     margin: 0;
