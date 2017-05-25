@@ -297,11 +297,15 @@ text {
   float:right;
 }
 
+
 /* Flow table dialog */
 #flow_stats_table_dialog {
     visibility: visible;
 }
-
+/* Flow table - tabulator - dialog content*/
+.tabulator {
+    background-color: white;
+}
 
 
 

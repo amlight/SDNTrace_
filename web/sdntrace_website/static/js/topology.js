@@ -596,8 +596,11 @@ var ForceGraph = function(p_selector, p_data) {
             // Flow matches
             _create_li(d_ul, '<u>Match</u>', '');
             if(flowObj.match.wildcards) { _create_li(d_ul, 'wildcards', flowObj.match.wildcards || ''); }
-            if(flowObj.match.dl_src) { _create_li(d_ul, 'dl_src', flowObj.match.dl_src || ''); }
             if(flowObj.match.in_port) { _create_li(d_ul, 'in_port', flowObj.match.in_port || ''); }
+            if(flowObj.match.dl_vlan) { _create_li(d_ul, 'dl_vlan', flowObj.match.dl_vlan || ''); }
+            if(flowObj.match.dl_type) { _create_li(d_ul, 'dl_type', flowObj.match.dl_type || ''); }
+            if(flowObj.match.dl_src) { _create_li(d_ul, 'dl_src', flowObj.match.dl_src || ''); }
+            if(flowObj.match.dl_dst) { _create_li(d_ul, 'dl_dst', flowObj.match.dl_dst || ''); }
 
             d.append($("<hr>"));
         }
@@ -741,7 +744,7 @@ var ForceGraph = function(p_selector, p_data) {
                 })
                 .on("mousedown", function(d) {
                     d3.event.stopPropagation();
-                    console.log('mousedown');
+
                     if (d.type == 'port') {
                         set_port_focus(d);
                     } else if (d.type == 'switch') {
@@ -1089,8 +1092,12 @@ var SDNTopology = function() {
 
                 flow_1.match = {};
                 flow_1.match.wildcards = jsonFlow.match.wildcards;
-                flow_1.match.dl_src = jsonFlow.match.dl_src;
                 flow_1.match.in_port = jsonFlow.match.in_port;
+                flow_1.match.dl_vlan = jsonFlow.match.dl_vlan;
+                flow_1.match.dl_src = jsonFlow.match.dl_src;
+                flow_1.match.dl_dst = jsonFlow.match.dl_dst;
+                flow_1.match.dl_type = jsonFlow.match.dl_type;
+
                 switch_obj.flow_stat.flows.push(flow_1);
             }
 
@@ -1110,14 +1117,19 @@ var SDNTopology = function() {
                 pivot.priority = jsonFlow.priority;
                 pivot.hard_timeout = jsonFlow.hard_timeout;
                 pivot.byte_count = jsonFlow.byte_count;
-                pivot.duration_nsec = jsonFlow.duration_nsec;
+                //pivot.duration_nsec = jsonFlow.duration_nsec;
                 pivot.packet_count= jsonFlow.packet_count;
-                pivot.duration_sec = jsonFlow.duration_sec;
+                pivot.duration_sec = jsonFlow.duration_sec + (jsonFlow.duration_nsec / 1000000000.0);
+                console.log(pivot.duration_sec);
+
                 pivot.table_id = jsonFlow.table_id || '';
 
                 pivot.match__wildcards = jsonFlow.match.wildcards || '';
+                pivot.match__in_port = jsonFlow.match.in_port || ' ';
+                pivot.match__dl_vlan = jsonFlow.match.dl_vlan || '';
                 pivot.match__dl_src = jsonFlow.match.dl_src || '';
-                pivot.match__in_port = jsonFlow.match.in_port || '';
+                pivot.match__dl_dst = jsonFlow.match.dl_dst || '';
+                pivot.match__dl_type = jsonFlow.match.dl_type || '';
 
                 if (jsonFlow.actions) {
                     for(var y in jsonFlow.actions) {
@@ -1132,8 +1144,6 @@ var SDNTopology = function() {
                             pivot.action__type = (jsonAction.type || '--');
                             pivot.action__port = (jsonAction.port || '--');
                         }
-
-
                     }
                 }
                 switch_obj.flow_pivot.push(pivot);
@@ -1199,11 +1209,9 @@ var SDNTopology = function() {
     * Use this function instead of access the topology attribute.
     */
     this.add_topology = function(link) {
-        console.log('this.add_topology. Is connected?' + isTopologyConnected(link.node1, link.node2));
         if (isTopologyConnected(link.node1, link.node2) == false) {
             addTopologyConnection(link.node1, link.node2);
             // add to topology list to render the html
-            console.log('*** ADD TOPOLOGY: ' + link);
             this.topology.push(link);
         }
     }
@@ -1442,9 +1450,7 @@ var SDNTopology = function() {
      * Call ajax to load the switch ports data.
      */
     this.call_sdntrace_get_switch_ports = function(p_dpid, callback=null) {
-        console.log('## STart call_sdntrace_get_switch_ports');
         var ajax_done = function(json, p_callback) {
-            console.log('### END call_sdntrace_get_switch_ports');
             var jsonObj;
             jsonObj= json;
 
@@ -1467,13 +1473,11 @@ var SDNTopology = function() {
                     port_obj.status = p_port_data.status;
 
                 });
-                console.log(switch_obj);
 
                 // verify if the json is not a '{}' response
                 if (p_callback != null && !jQuery.isEmptyObject(jsonObj)) {
                     // render D3 popup
                     try {
-                        console.log('** START CALLBACK **');
                         p_callback(p_dpid, jsonObj);
                     }
                     catch(err) {
@@ -1852,8 +1856,6 @@ var D3JS = function() {
             edges_data: this.edges
         };
 
-        console.log(data);
-
         // creating Force Graph nodes
         // Set the new data
         forcegraph.data(data);
@@ -1868,7 +1870,6 @@ var D3JS = function() {
             var _host_id = Host.create_id(p_dpid, p_port_id);
             for (y = 0; y < this.nodes.length; y++) {
                 if(this.nodes[y].id == _host_id) {
-                    console.log('NODE ALREADY HERE!!!! ' + _host_id)
                     // do nothing
                     return this.nodes[y];
                 }
@@ -1902,7 +1903,6 @@ var D3JS = function() {
         if(this.nodes) {
             for (y = 0; y < this.nodes.length; y++) {
                 if(this.nodes[y].id == domain_id) {
-                    console.log('NODE DOMAIN ALREADY HERE!!!! ' + domain_id)
                     // do nothing
                     return this.nodes[y];
                 }
@@ -1936,8 +1936,6 @@ var D3JS = function() {
         var _link = sdntopology.get_topology_link(node_from, node_to);
         if (_link == null) {
             _link = {node1: node_from , node2:node_to, label1:label, label2:label, speed:""}
-            console.log("** ADD Link: ");
-            console.log(_link);
 
             sdntopology.add_topology(_link);
 
