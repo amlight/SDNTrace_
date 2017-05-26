@@ -2,6 +2,7 @@
     This is the core of the SDNTrace
     Here all OpenFlow events are received and handled
 """
+import time
 from ryu import utils
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -151,3 +152,11 @@ class SDNTrace(app_manager.RyuApp):
         """
         switch = self.switches.get_switch(ev.msg.datapath)
         switch.process_description_stats_reply(ev)
+
+    @set_ev_cls(ofp_event.EventOFPEchoReply, MAIN_DISPATCHER)
+    def echo_reply_handler(self, ev):
+        now = float(time.time())
+        source = float(ev.msg.data)
+        diff = (now - source) * 1000
+        print("now: %f source: %f diff in ms: %f" % (now, source, diff))
+
