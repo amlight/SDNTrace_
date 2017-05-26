@@ -568,10 +568,10 @@ var ForceGraph = function(p_selector, p_data) {
             var flowObj = _flow_stat.flows[x];
 
             // Flow actions
-            var actionStr = '<table class="table-bordered table-condensed"><thead><tr><th>Type</th><th>Max Len.</th><th>Port</th></tr></thead><tbody>';
+            var actionStr = '<table class="table-bordered table-condensed"><thead><tr><th>Type</th><th>Max Len.</th><th>Port</th><th>VLAN</th></tr></thead><tbody>';
             for(var y in flowObj.actions) {
                 var actionObj = flowObj.actions[y];
-                actionStr += '<tr><td>' + actionObj.type + '</td><td>' + (actionObj.max_len || '') + '</td><td>' + (actionObj.port || '') + '</td></tr>';
+                actionStr += '<tr><td>' + actionObj.type + '</td><td>' + (actionObj.max_len || '--') + '</td><td>' + (actionObj.port || '--') + '</td><td>' + (actionObj.vlan_vid || '--') + '</td></tr>';
             }
             actionStr += '</tbody></table><br>';
             d.append($(actionStr));
@@ -1087,6 +1087,7 @@ var SDNTopology = function() {
                     flow_1_action_1.max_len = jsonAction.max_len;
                     flow_1_action_1.type = jsonAction.type;
                     flow_1_action_1.port = jsonAction.port;
+                    flow_1_action_1.vlan_vid = jsonAction.vlan_vid;
                     flow_1.actions.push(flow_1_action_1);
                 }
 
@@ -1139,10 +1140,12 @@ var SDNTopology = function() {
                             pivot.action__max_len = pivot.action__max_len +"<br>"+ (jsonAction.max_len || '--');
                             pivot.action__type = pivot.action__type +"<br>"+ (jsonAction.type || '--');
                             pivot.action__port = pivot.action__port +"<br>"+ (jsonAction.port || '--');
+                            pivot.action__vlan_vid = pivot.action__vlan_vid +"<br>"+ (jsonAction.vlan_vid || '--');
                         } else {
                             pivot.action__max_len = (jsonAction.max_len || '--');
                             pivot.action__type = (jsonAction.type || '--');
                             pivot.action__port = (jsonAction.port || '--');
+                            pivot.action__vlan_vid = (jsonAction.vlan_vid || '--');
                         }
                     }
                 }
