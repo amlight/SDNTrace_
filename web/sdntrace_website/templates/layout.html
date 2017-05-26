@@ -3,28 +3,52 @@
     {% block head %}
         <title>{% block title %}{% endblock %} SDN Trace</title>
         <meta charset=utf-8>
-        <script src="{{ url_for('static', filename='jslib/highlight.min.js') }}"></script>
-        <script src="{{ url_for('static', filename='jslib/jquery.min.js') }}"></script>
-        <script src="{{ url_for('static', filename='jslib/bootstrap.min.js') }}"></script>
-        <script src="{{ url_for('static', filename='jslib/jquery.mask.min.js') }}"></script>
 
-        <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
-        <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
+        <script src="{{ url_for('static', filename='jslib/jquery.min.js') }}" type="text/javascript"></script>
+
+        <script src="{{ url_for('static', filename='jslib/tether.min.js') }}"></script>
+        <script src="{{ url_for('static', filename='jslib/bootstrap.min.js') }}"></script>
+
+        <script src="{{ url_for('static', filename='jslib/highlight.min.js') }}"></script>
+        <!--<script src="{{ url_for('static', filename='jslib/jquery.min.js') }}"></script>-->
+
+        <script src="{{ url_for('static', filename='jslib/jquery.mask.min.js') }}"></script>
+        <script src="{{ url_for('static', filename='jslib/jquery-ui.min.js') }}"></script>
+
+        <!-- Include jQuery Cookie plugin -->
+        <script src='//cdn.jsdelivr.net/jquery.cookie/1.4.0/jquery.cookie.js' type="text/javascript"></script>
+
 
         <script src="{{ url_for('static', filename='jslib/d3.v4.4.4.min.js') }}"></script>
-
         <script src="{{ url_for('static', filename='jslib/d3-context-menu.js') }}"></script>
 
+
+        <link href="{{ url_for('static', filename='jslib/tether.min.css') }}" rel="stylesheet">
         <link href="{{ url_for('static', filename='jslib/bootstrap.min.css') }}" rel="stylesheet">
+
+        <link href="{{ url_for('static', filename='jslib/jquery-ui.min.css') }}" rel="stylesheet">
+
+
+        <!--<link href="https://cdnjs.cloudflare.com/ajax/libs/tabulator/2.12.0/tabulator.min.css" rel="stylesheet">-->
+        <!--<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/tabulator/2.12.0/tabulator.min.js"></script>-->
+        <link href="{{ url_for('static', filename='jslib/tabulator.v3.0-beta.min.css') }}" rel="stylesheet">
+        <script src="{{ url_for('static', filename='jslib/tabulator.v3.0-beta.js') }}"></script>
+
         <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
         <link href="{{ url_for('static', filename='jslib/ie10-viewport-bug-workaround.css') }}" rel="stylesheet">
 
         <link href="{{ url_for('static', filename='css/layout.css') }}" rel="stylesheet">
         <script src="{{ url_for('static', filename='js/conf.js') }}"></script>
         <script src="{{ url_for('static', filename='js/lg.js') }}"></script>
+
     {% endblock %}
 </head>
 <body>
+<div id="flow_stats_table_dialog">
+    <div id="flow_stats_table"></div>
+</div>
+
 <div class=box>
     {% block nav_bar %}
         <nav class="navbar navbar-inverse navbar-fixed-top">

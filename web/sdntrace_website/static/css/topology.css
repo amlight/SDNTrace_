@@ -271,6 +271,7 @@ text {
 }
 #sdn_trace_form {
     width: 100%;
+    display:none; /* initial display. It is a dialog. */
 }
 #sdn_trace_form .row {
     margin: 0;
@@ -284,7 +285,9 @@ text {
 }
 
 #port_panel_info_collapse > div > div > ul > li > span:nth-child(1),
-#switch_panel_info_collapse > div > div > ul > li > span:nth-child(1) {
+#switch_panel_info_collapse > div > div > ul > li > span:nth-child(1),
+#switch_flows_panel_collapse > div > div > ul  li  span:nth-child(1)
+{
     font-weight: bold;
 }
 
@@ -295,6 +298,19 @@ text {
   float:right;
 }
 
+
+/* Flow table dialog */
+#flow_stats_table_dialog {
+    visibility: visible;
+}
+/* Flow table - tabulator - dialog content*/
+.tabulator {
+    background-color: white;
+}
+
+
+
+/* Page navbar */
 
 .navbar-inverse .navbar-toggle-always {
   border-color: #333333;
@@ -355,4 +371,6 @@ text {
 .navbar-toggle-always .icon-bar-always + .icon-bar-always {
   margin-top: 4px;
 }
+
+
 
