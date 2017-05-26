@@ -1,6 +1,7 @@
 """
     OpenFlow generic switch class
 """
+import time
 from ryu.lib import hub
 from ryu.lib.packet import packet, lldp, ethernet, vlan
 from ryu.ofproto import ether
@@ -46,6 +47,7 @@ class OFSwitch(object):
         self.setup_interdomain()
         # threads
         self._get_flows = hub.spawn(self._request_flows)
+        self._echo = hub.spawn(self._send_echo)
 
     @property
     def version_name(self):
@@ -304,6 +306,23 @@ class OFSwitch(object):
                 return 2, pkt, ev.msg.in_port
             elif ev.msg.version == 4:
                 return 2, pkt, ev.msg.match['in_port']
+
+    def _send_echo(self):
+        """
+        
+        Returns:
+
+        """
+        while True:
+            data = repr(time.time())
+            datapath = self.obj.msg.datapath
+            self.send_echo_request(datapath, data)
+            hub.sleep(5)
+
+    def send_echo_request(self, datapath, data):
+        ofp_parser = datapath.ofproto_parser
+        req = ofp_parser.OFPEchoRequest(datapath, data)
+        datapath.send_msg(req)
 
     def setup_interdomain(self):
         """
