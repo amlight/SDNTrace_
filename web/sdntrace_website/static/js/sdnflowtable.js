@@ -36,6 +36,7 @@ var SdnFlowTable = function() {
                         {id: 21, title:"type", field:"action__type", align:"center", width:"100", headerFilter:"input"},
                         {id: 22, title:"max_len", field:"action__max_len", align:"center", width:"90", headerFilter:"input"},
                         {id: 23, title:"port", field:"action__port", align:"center", width:"90", headerFilter:"input"},
+                        {id: 24, title:"vlan", field:"action__vlan_vid", align:"center", width:"90", headerFilter:"input"},
                     ],
                 },
                 {//create column Counters group
