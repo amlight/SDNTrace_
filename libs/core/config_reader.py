@@ -115,11 +115,15 @@ class OpenflowConfig:
 
     VERSION = 'all'
     MIN_COOKIE = 2000000
+    ECHO_REQ = 10
 
     def __init__(self, config):
         self.version = get_config(config, 'version', default=self.VERSION)
         self.min_cookie = get_config(config, 'minimum_cookie_id', int_type=True,
                                      default=self.MIN_COOKIE)
+        self.echo_req_interval = get_config(config, 'echo_req_interval',
+                                            int_type=True,
+                                            default=self.ECHO_REQ)
 
 
 class TraceConfig:

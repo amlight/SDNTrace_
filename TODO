@@ -19,6 +19,8 @@
 
 - Make sure PortStatus trigger topology change
 
+- Make sure all links are bidirectional (done on May 26)
+
 # Consistency
 
 - Delete old colored flows

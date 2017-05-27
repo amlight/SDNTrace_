@@ -19,12 +19,6 @@ class Switches:
         self._switches = dict()
         self.links = Links()
 
-    # def __setitem__(self, key, value):
-    #     self._switches[key] = value
-    #
-    # def __getitem__(self, key):
-    #     return self._switches[key]
-
     def __len__(self):
         return len(self._switches)
 

@@ -37,7 +37,8 @@ class FormatRest:
                 "switch_vendor": "string",
                 "ip_address": "ip_address",
                 "switch_name": "string",
-                "number_flows": integer
+                "number_flows": integer,
+                "distance": integer
             }
             or
             {} if not found
@@ -53,7 +54,8 @@ class FormatRest:
                         'openflow_version': switch.version_name,
                         'ip_address': switch.addr[0],
                         'tcp_port': switch.addr[1],
-                        'number_flows': len(switch.flows)
+                        'number_flows': len(switch.flows),
+                        'distance': switch.distance
                         }
                 break
         return json.dumps(info)

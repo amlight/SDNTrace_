@@ -94,13 +94,6 @@ class SDNTrace(app_manager.RyuApp):
         """
         switch = self.switches.get_switch('%016x' % ev.msg.datapath.id, by_name=True)
 
-        # packet_in_queue.send(ptype=action, content=result, event=ev.msg, in_port=in_port,
-        #                      switch=switch)
-
-        # if isinstance(switch, bool):
-        #    print('PacketIn received for a switch that was not instantiated!!')
-        #    return
-
         action, result, in_port = switch.process_packetIn(ev, self.links)
 
         if action is 1:  # LLDP
@@ -155,8 +148,11 @@ class SDNTrace(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPEchoReply, MAIN_DISPATCHER)
     def echo_reply_handler(self, ev):
+        """
+            Echo Res Message
+            Args:
+                ev: EchoReply message received
+        """
         now = float(time.time())
-        source = float(ev.msg.data)
-        diff = (now - source) * 1000
-        print("now: %f source: %f diff in ms: %f" % (now, source, diff))
-
+        switch = self.switches.get_switch(ev.msg.datapath)
+        switch.process_echo_reply_timestamp(now, ev.msg.data)

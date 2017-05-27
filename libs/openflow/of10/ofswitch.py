@@ -58,9 +58,11 @@ class OFSwitch10(OFSwitch):
                     port = OFPPhyPort.parser(self.obj.msg.buf, offset)
                     if port.port_no < ofproto.OFPP_MAX:
                         curr = get_port_speed(port.curr)
+                        status = 'up' if port.config == 0 and port.state == 0 else 'down'
                         ports[port.port_no] = {"port_no": port.port_no,
                                                "name": port.name,
-                                               "speed": curr}
+                                               "speed": curr,
+                                               "status": status}
                 offset += ofproto.OFP_PHY_PORT_SIZE
         return ports
 

@@ -4,16 +4,16 @@
 class Link:
 
     def __init__(self, switch_a, port_a, switch_z, port_z):
-        if switch_a < switch_z:
-            self.switch_a = switch_a
-            self.switch_z = switch_z
-            self.port_a = int(port_a)
-            self.port_z = int(port_z)
-        else:
-            self.switch_a = switch_z
-            self.switch_z = switch_a
-            self.port_a = int(port_z)
-            self.port_z = int(port_a)
+        # if switch_a < switch_z:
+        self.switch_a = switch_a
+        self.switch_z = switch_z
+        self.port_a = int(port_a)
+        self.port_z = int(port_z)
+        # else:
+        #     self.switch_a = switch_z
+        #     self.switch_z = switch_a
+        #     self.port_a = int(port_z)
+        #     self.port_z = int(port_a)
 
     @property
     def simple(self):
@@ -39,7 +39,7 @@ class Link:
         if self.switch_a == link.switch_a and self.switch_z == link.switch_z:
             if self.port_a == link.port_a and self.port_z == link.port_z:
                 return True
-        if self.switch_z == link.switch_a and self.switch_a == link.switch_z:
-            if self.port_a == link.port_z and self.port_z == link.port_a:
-                return True
+        # if self.switch_z == link.switch_a and self.switch_a == link.switch_z:
+        #     if self.port_a == link.port_z and self.port_z == link.port_a:
+        #         return True
         return False

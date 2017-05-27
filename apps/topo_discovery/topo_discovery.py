@@ -30,9 +30,10 @@ class TopologyDiscovery(object):
 
     def _set_active(self):
         """
-        
+            Check configuration to see if it is enabled
             Returns:
-
+                True:
+                False:
         """
         if self.config.topo.activate == 'on':
             print('Topology Discovery App activated')
@@ -68,14 +69,17 @@ class TopologyDiscovery(object):
 
     def handle_packet_in_lldp(self, link):
         """
-            Once a LLDP + PacketIn is received, add the discovered link,
-                updated adjacencies and update topology
+            Once a LLDP + PacketIn is received, send link to Links.
+            Links will add create an entry if both directions are seen.
+            If so, add the discovered link, updated adjacencies and 
+            update topology
             Args:
                 link: Class Link
         """
-        self.links.add_link(link)
-        self.create_adjacencies(self.links)
-        self._update_topology()
+        created = self.links.process_new_link(link)
+        if created:
+            self.create_adjacencies(self.links)
+            self._update_topology()
 
     def create_adjacencies(self, links):
         """
@@ -85,7 +89,7 @@ class TopologyDiscovery(object):
                 links: self.links
         """
         for switch in self.switches.get_switches():
-            switch.create_adjacencies(self, links)
+            switch.create_adjacencies(links)
 
     def _update_topology(self):
         """
@@ -130,12 +134,6 @@ class TopologyDiscovery(object):
                                                     'neighbor_dpid': link.switch_a,
                                                     'neighbor_port': link.port_a}
         self._topology = switches
-
-    # def __str__(self):
-    #     """
-    #         Has usage?
-    #     """
-    #     print(self._topology)
 
     def get_topology(self):
         """
