@@ -41,4 +41,4 @@ The web interface configuration is composed of just one section
 
 ### [web-rest]
 `REST_HOST = localhost` - host where te controller is serving its REST API, defaults to `localhost`  
-`REST_PORT = 8000` - port the controller uses to serve REST API, defaults to K 8000ˋ
+`REST_PORT = 8000` - port the controller uses to serve REST API, defaults to `8000ˋ
