@@ -1,8 +1,10 @@
 {% extends "layout.html" %}
 {% block head %}
   {{ super() }}
+    <script src="{{ url_for('static', filename='js/debug.js') }}"></script>  
     <script src="{{ url_for('static', filename='js/domain.js') }}"></script>
     <script src="{{ url_for('static', filename='js/sdnflowtable.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/d3topology.js') }}"></script>
     <script src="{{ url_for('static', filename='js/topology.js') }}"></script>
     <script src="{{ url_for('static', filename='js/trace.js') }}"></script>
     <link href="{{ url_for('static', filename='css/topology.css') }}" rel="stylesheet">
