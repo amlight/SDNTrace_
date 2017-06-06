@@ -1,20 +1,25 @@
 
 /* global sdntopology, forcegraph, sdnflowtable, d3, sdncolor, Port, Domain, Switch, Host */
-
+/** @constant */
 var SPEED_100GB = 100000000000;
+/** @constant */
 var SPEED_10GB = 10000000000;
+/** @constant */
 var SPEED_1GB = 1000000000;
 
+/** @constant */
 var SIZE = {'switch': 16,
             'domain': 3,
             'port': 8,
             'host': 16};
 
+/** @constant */
 var SIZE_PATH = {'switch': 700,
             'domain': 700,
             'port': 80,
             'host': 700};
 
+/** @constant */
 var DISTANCE = {'domain': 10 * SIZE['switch'],
                 'switch': 10 * SIZE['switch'],
                 'port': SIZE['switch'] + 16,

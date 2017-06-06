@@ -7,10 +7,12 @@ var sdn_trace_form_dialog = '';
 var sdntrace = '';
 
 var SDNTrace = function() {
-    var _self = this;
-
+    /** @constant */
     var REST_TRACE_TYPE = {'STARTING':'starting', 'LAST':'last', 'TRACE':'trace', 'INTERTRACE':'intertrace'};
+    /** @constant */
     var REST_TRACE_REASON = {'ERROR':'error', 'DONE':'done', 'LOOP':'loop'};
+    
+    var _self = this;
 
     // last trace id executing
     this.lastTraceID = "";
