@@ -1,17 +1,29 @@
+"""
+
+"""
 import json
-from libs.core.config_reader import ConfigReader
-from libs.core.rest.openflow_helper import process_actions
-from libs.core.rest.openflow_helper import process_match
+from libs.openflow.of10.openflow_helper import process_actions
+from libs.openflow.of10.openflow_helper import process_match
+from libs.topology.switches import Switches
+from apps.topo_discovery.topo_discovery import TopologyDiscovery
 
 
-class FormatRest:
+class FormatRest(object):
 
-    def __init__(self, switches, links=None):
-        self.switches = switches
-        self.links = links
-        self.config = ConfigReader()
+    @staticmethod
+    def list_switches():
+        switches = [switch.name for switch in Switches().get_switches()]
+        return json.dumps(switches)
 
-    def switch_info(self, dpid):
+    @staticmethod
+    def list_colors():
+        colors = {}
+        for switch in Switches().get_switches():
+            colors[switch.name] = {'color': switch.color, 'old_color': switch.old_color}
+        return json.dumps(colors)
+
+    @staticmethod
+    def switch_info(dpid):
         """
             /sdntrace/switches/00004af7b0f68749/info
             {
@@ -22,13 +34,14 @@ class FormatRest:
                 "switch_vendor": "string",
                 "ip_address": "ip_address",
                 "switch_name": "string",
-                "number_flows": integer
+                "number_flows": integer,
+                "distance": integer
             }
             or
             {} if not found
         """
-        body = dict()  # in case user requests before switch appears
-        for _, switch in self.switches.items():
+        info = dict()  # in case user requests before switch appears
+        for switch in Switches().get_switches():
             if switch.name == dpid:
                 info = {
                         'switch_name': switch.switch_name,
@@ -38,13 +51,14 @@ class FormatRest:
                         'openflow_version': switch.version_name,
                         'ip_address': switch.addr[0],
                         'tcp_port': switch.addr[1],
-                        'number_flows': 0
+                        'number_flows': len(switch.flows),
+                        'distance': switch.distance
                         }
-                body = json.dumps(info)
                 break
-        return body
+        return json.dumps(info)
 
-    def switch_ports(self, dpid):
+    @staticmethod
+    def switch_ports(dpid):
         """
             {
             "1": {
@@ -62,14 +76,23 @@ class FormatRest:
             }
         """
         body = dict()
-        for _, switch in self.switches.items():
+        for switch in Switches().get_switches():
             if switch.name == dpid:
                 ports = switch.ports
                 body = json.dumps(ports)
                 break
         return body
 
-    def get_topology(self):
+    @staticmethod
+    def switch_neighbors(dpid):
+        neighbors = list()
+        for switch in Switches().get_switches():
+            if switch.name == dpid:
+                neighbors = [neighbor.name for neighbor in switch.adjacencies_list]
+        return json.dumps(neighbors)
+
+    @staticmethod
+    def get_topology():
         """
             This method is used by SDNTraceREST to post the network
             topology using the following format:
@@ -93,49 +116,12 @@ class FormatRest:
                 "dpid_b": ...
             }
         """
-        # Collect all inter-domain info from the configuration file
-        inter_conf = self.config.interdomain.locals
-        inter_names = self.config.interdomain.neighbors
-
-        # Create a temporary dictionary with all inter-domain ports adding
-        #  the remote domain's name to it
-        inter = dict()
-        for node in inter_conf:
-            sw_dpid, sw_port = node.split(':')
-            inter[sw_dpid] = {}
-            for neighbor in inter_names:
-                local = self.config.interdomain.get_local_sw(neighbor)
-                if local == sw_dpid:
-                    inter[sw_dpid][sw_port] = {'type':'interdomain',
-                                               'domain_name': neighbor}
-
-        # Create the final dictionary with all switches and ports
-        #   Uses the inter dict to add inter-domain info. If no inter-domain
-        #   is found, assume it is a host port - for now.
-        switches = dict()
-        for _, switch in self.switches.items():
-            switches[switch.name] = {}
-            for port in switch.ports:
-                try:
-                    switches[switch.name][port] = inter[switch.name][str(port)]
-                except:
-                    switches[switch.name][port] = {'type': 'host',
-                                                   'host_name': 'no_name'}
-
-        # Now, update the switches dictionary with the link info from the
-        #   SDNTrace.links, which is the Links class.
-        for link in self.links.links:
-            switches[link.switch_a][link.port_a] = { 'type': 'link',
-                                                     'neighbor_dpid': link.switch_z,
-                                                     'neighbor_port': link.port_z}
-            switches[link.switch_z][link.port_z] = { 'type': 'link',
-                                                     'neighbor_dpid': link.switch_a,
-                                                     'neighbor_port': link.port_a}
-
+        topology = TopologyDiscovery().get_topology()
         # Return switches in the json format
-        return json.dumps(switches)
+        return json.dumps(topology)
 
-    def list_flows(self, dpid):
+    @staticmethod
+    def list_flows(dpid):
         """
             /sdntrace/switches/{dpid}/flows
            {
@@ -175,7 +161,7 @@ class FormatRest:
         """
         body = dict()  # in case user requests before switch appears
         flows = list()
-        for _, switch in self.switches.items():
+        for switch in Switches().get_switches():
             if switch.name == dpid:
                 for flow in sorted(sorted(switch.flows, key=lambda f: f.duration_sec, reverse=True),
                                    key=lambda f: f.priority, reverse=True):
@@ -205,4 +191,3 @@ class FormatRest:
                 body = json.dumps(final)
                 break
         return body
-

@@ -1,12 +1,25 @@
+"""
+    Run file
+"""
+
+
 import sys
 import argparse
 from ryu.cmd import manager
 from libs.core.config_reader import ConfigReader
 
 
+VERSION = "0.1a"
+
+
 def cli():
+    """
+        
+        Returns:
+
+    """
     parser = argparse.ArgumentParser()
-    parser.add_argument('-V', '--version', action='version', version='SDNTrace 1.0')
+    parser.add_argument('-V', '--version', action='version', version=VERSION)
     parser.add_argument("-v", "--verbose",
                         help="Set Verbose Level (info|warning|debug)",
                         default='info')
@@ -17,6 +30,16 @@ def cli():
 
 
 def load_ryu_options(app, verbose, configs):
+    """
+    
+        Args:
+            app: 
+            verbose: 
+            configs: 
+    
+        Returns:
+
+    """
     options = list()
     options.append(app)
 
@@ -26,6 +49,7 @@ def load_ryu_options(app, verbose, configs):
 
     options.append('--ofp-tcp-listen-port')
     options.append(configs.ryu.listen_port)
+
     options.append('--wsapi-port')
     options.append(configs.ryu.wsgi_port)
 
@@ -33,6 +57,7 @@ def load_ryu_options(app, verbose, configs):
         options.append('--log-file')
         options.append(configs.general.logfile)
 
+    # TODO: is this still needed?
     options.append('--config-file')
     options.append(configs.config_file)
 
@@ -40,6 +65,14 @@ def load_ryu_options(app, verbose, configs):
 
 
 def get_params(app):
+    """
+    
+        Args:
+            app: 
+    
+        Returns:
+
+    """
     args = cli()
     configs = ConfigReader(args.config_file)
     params = load_ryu_options(app, args.verbose, configs)
@@ -47,6 +80,11 @@ def get_params(app):
 
 
 def main():
+    """
+    
+        Returns:
+
+    """
     args = get_params(app='sdntraceRest.py')
     manager.main(args=args)
 

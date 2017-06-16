@@ -7,6 +7,9 @@ from singleton import Singleton
 
 
 class ConfigReader:
+    """
+    
+    """
 
     __metaclass__ = Singleton
 
@@ -25,6 +28,14 @@ class ConfigReader:
 
     @staticmethod
     def read_file(config_file):
+        """
+        
+        Args:
+            config_file: 
+
+        Returns:
+
+        """
         config = ConfigParser()
         try:
             with open(config_file) as f:
@@ -50,6 +61,14 @@ class ConfigReader:
         return sections
 
     def fill_sections(self, configs):
+        """
+        
+        Args:
+            configs: 
+
+        Returns:
+
+        """
         self.general = GeneralConfig(configs['general'])
         self.openflow = OpenflowConfig(configs['openflow'])
         self.trace = TraceConfig(configs['trace'])
@@ -61,6 +80,18 @@ class ConfigReader:
 
 
 def get_config(config, option, int_type=False, default=None, islist=False):
+    """
+    
+    Args:
+        config: 
+        option: 
+        int_type: 
+        default: 
+        islist: 
+
+    Returns:
+
+    """
     try:
         if not islist:
             return int(config[option]) if int_type else config[option]
@@ -84,11 +115,15 @@ class OpenflowConfig:
 
     VERSION = 'all'
     MIN_COOKIE = 2000000
+    ECHO_REQ = 10
 
     def __init__(self, config):
         self.version = get_config(config, 'version', default=self.VERSION)
         self.min_cookie = get_config(config, 'minimum_cookie_id', int_type=True,
                                      default=self.MIN_COOKIE)
+        self.echo_req_interval = get_config(config, 'echo_req_interval',
+                                            int_type=True,
+                                            default=self.ECHO_REQ)
 
 
 class TraceConfig:
@@ -133,10 +168,13 @@ class AppsConfig:
 
 class TopologyConfig:
 
+    ACTIVATE = 'on'
     PACKET_OUT_INTERVAL = 5
     VLAN_DISCOVERY = 100
 
     def __init__(self, config):
+        self.activate = get_config(config, 'activate',
+                                         default=self.ACTIVATE)
         self.packet_out_interval = get_config(config, 'packet_out_interval',
                                               int_type=True,
                                               default=self.PACKET_OUT_INTERVAL)

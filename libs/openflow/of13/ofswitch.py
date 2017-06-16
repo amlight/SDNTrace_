@@ -7,7 +7,6 @@ from ryu.lib import ip, mac
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto.ofproto_v1_3_parser import OFPMatch
 
-from libs.core.config_reader import ConfigReader
 from libs.openflow.ofswitch import OFSwitch
 from libs.openflow.of13.port_helper import get_port_speed
 
@@ -49,9 +48,11 @@ class OFSwitch13(OFSwitch):
         for port in ev.msg.body:
             if port.port_no < ofproto.OFPP_MAX:
                 speed = get_port_speed(port.curr_speed)
+                status = 'up' if port.config == 0 and port.state == 0 else 'down'
                 ports[port.port_no] = {"port_no": port.port_no,
                                        "name": port.name,
-                                       "speed": speed}
+                                       "speed": speed,
+                                       'status': status}
         self.ports = ports
 
     def prepare_default_flow(self):
@@ -127,6 +128,11 @@ class OFSwitch13(OFSwitch):
         datapath.send_barrier()
 
     def get_flows(self):
+        """
+        
+                Returns:
+
+        """
         dp = self.obj.msg.datapath
         ofp = dp.ofproto
         ofp_parser = dp.ofproto_parser
@@ -138,6 +144,15 @@ class OFSwitch13(OFSwitch):
         dp.send_msg(req)
 
     def match_flow(self, in_port, pkt):
+        """
+            
+            Args:
+                in_port: 
+                pkt: 
+    
+            Returns:
+
+        """
         for flow in self.flows:
             if self.match(flow.match, pkt, in_port, self.obj.msg.datapath.ofproto):
                 for instruction in flow.instructions:
@@ -147,6 +162,18 @@ class OFSwitch13(OFSwitch):
 
     @staticmethod
     def match(flow, pkt, in_port, ofp, in_phy_port=None):
+        """
+        
+            Args:
+                flow: 
+                pkt: 
+                in_port: 
+                ofp: 
+                in_phy_port: 
+    
+            Returns:
+
+        """
         eth = pkt[0]
         vlan = pkt[1]
 

@@ -10,6 +10,15 @@ from libs.openflow.of13.port_helper import get_port_speed as of13_helper
 
 
 def get_speed_name(version, desc):
+    """
+    
+        Args:
+            version: 
+            desc: 
+    
+        Returns:
+
+    """
 
     if version == ofproto_v1_0.OFP_VERSION:
         return of10_helper(desc.curr)
