@@ -18,7 +18,6 @@ from libs.topology.switches import Switches
 from apps.tracing.trace_manager import TraceManager
 from apps.topo_discovery.topo_discovery import TopologyDiscovery
 from apps.graph_coloring.graph_coloring import GraphColoring
-from libs.core.queues import packet_in_queue
 
 
 class SDNTrace(app_manager.RyuApp):
@@ -94,7 +93,7 @@ class SDNTrace(app_manager.RyuApp):
         """
         switch = self.switches.get_switch('%016x' % ev.msg.datapath.id, by_name=True)
 
-        action, result, in_port = switch.process_packetIn(ev, self.links)
+        action, result, in_port = switch.process_packetIn(ev)
 
         if action is 1:  # LLDP
             self.topo_disc.handle_packet_in_lldp(link=result)

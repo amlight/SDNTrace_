@@ -1,32 +1,29 @@
-import json
+"""
 
-from libs.core.config_reader import ConfigReader
+"""
+import json
 from libs.openflow.of10.openflow_helper import process_actions
 from libs.openflow.of10.openflow_helper import process_match
-from libs.topology.links import Links
 from libs.topology.switches import Switches
 from apps.topo_discovery.topo_discovery import TopologyDiscovery
 
 
-class FormatRest:
+class FormatRest(object):
 
-    def __init__(self):
-        self.switches = Switches()
-        self.links = Links()
-        self.config = ConfigReader()
-        self.topology = TopologyDiscovery()
-
-    def list_switches(self):
-        switches = [switch.name for switch in self.switches.get_switches()]
+    @staticmethod
+    def list_switches():
+        switches = [switch.name for switch in Switches().get_switches()]
         return json.dumps(switches)
 
-    def list_colors(self):
+    @staticmethod
+    def list_colors():
         colors = {}
-        for switch in self.switches.get_switches():
+        for switch in Switches().get_switches():
             colors[switch.name] = {'color': switch.color, 'old_color': switch.old_color}
         return json.dumps(colors)
 
-    def switch_info(self, dpid):
+    @staticmethod
+    def switch_info(dpid):
         """
             /sdntrace/switches/00004af7b0f68749/info
             {
@@ -44,7 +41,7 @@ class FormatRest:
             {} if not found
         """
         info = dict()  # in case user requests before switch appears
-        for switch in self.switches.get_switches():
+        for switch in Switches().get_switches():
             if switch.name == dpid:
                 info = {
                         'switch_name': switch.switch_name,
@@ -60,7 +57,8 @@ class FormatRest:
                 break
         return json.dumps(info)
 
-    def switch_ports(self, dpid):
+    @staticmethod
+    def switch_ports(dpid):
         """
             {
             "1": {
@@ -78,21 +76,23 @@ class FormatRest:
             }
         """
         body = dict()
-        for switch in self.switches.get_switches():
+        for switch in Switches().get_switches():
             if switch.name == dpid:
                 ports = switch.ports
                 body = json.dumps(ports)
                 break
         return body
 
-    def switch_neighbors(self, dpid):
+    @staticmethod
+    def switch_neighbors(dpid):
         neighbors = list()
-        for switch in self.switches.get_switches():
+        for switch in Switches().get_switches():
             if switch.name == dpid:
                 neighbors = [neighbor.name for neighbor in switch.adjacencies_list]
         return json.dumps(neighbors)
 
-    def get_topology(self):
+    @staticmethod
+    def get_topology():
         """
             This method is used by SDNTraceREST to post the network
             topology using the following format:
@@ -116,11 +116,12 @@ class FormatRest:
                 "dpid_b": ...
             }
         """
-        topology = self.topology.get_topology()
+        topology = TopologyDiscovery().get_topology()
         # Return switches in the json format
         return json.dumps(topology)
 
-    def list_flows(self, dpid):
+    @staticmethod
+    def list_flows(dpid):
         """
             /sdntrace/switches/{dpid}/flows
            {
@@ -160,7 +161,7 @@ class FormatRest:
         """
         body = dict()  # in case user requests before switch appears
         flows = list()
-        for switch in self.switches.get_switches():
+        for switch in Switches().get_switches():
             if switch.name == dpid:
                 for flow in sorted(sorted(switch.flows, key=lambda f: f.duration_sec, reverse=True),
                                    key=lambda f: f.priority, reverse=True):
@@ -190,4 +191,3 @@ class FormatRest:
                 body = json.dumps(final)
                 break
         return body
-

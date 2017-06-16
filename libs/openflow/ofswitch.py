@@ -10,6 +10,7 @@ from libs.core.config_reader import ConfigReader
 from libs.openflow.port_speed import get_speed_name
 from libs.topology.link import Link
 import libs.topology.switches
+# from libs.topology.links import Links
 from libs.core.queues import topology_change
 
 
@@ -119,6 +120,7 @@ class OFSwitch(object):
         self.switch_vendor = body.mfr_desc
         self.print_connected()
 
+    @topology_change
     def port_status(self, ev):
         """
             Process OFP_Port_Status
@@ -150,7 +152,7 @@ class OFSwitch(object):
                 self.ports[msg.desc.port_no]['status'] = status
 
     @staticmethod
-    def process_packetIn(ev, links):
+    def process_packetIn(ev):
         """
             Process PacketIn - core of the SDNTrace
             PacketIn.action will define the reason: if content is LLDP,
@@ -158,7 +160,6 @@ class OFSwitch(object):
                 if content is not, it COULD be a trace file
             Args:
                 ev: event
-                links: List Class
             Returns:
                 0, 0 if table miss
                 2, pkt if not LLDP
@@ -172,8 +173,8 @@ class OFSwitch(object):
 
         # If it is a OFPR_NO_MATCH, it means it is not our packet
         # Return 0
-        if ev.msg.reason == ev.msg.datapath.ofproto.OFPR_NO_MATCH:
-            return 0, 0, 0
+        # if ev.msg.reason == ev.msg.datapath.ofproto.OFPR_NO_MATCH:
+        #    return 0, 0, 0
 
         pkt = packet.Packet(ev.msg.data)
         pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
@@ -309,6 +310,18 @@ class OFSwitch(object):
             elif link[1] == self.name:
                 neighbor = self.switches.get_switch(link[0], True)
                 self.adjacencies_list.append(neighbor)
+
+    def remove_adjacencies(self, port_no):
+        """
+        
+        Args:
+            port_no: 
+
+        Returns:
+
+        """
+        # TODO: think it carefully
+        pass
 
     def save_flows(self, flows):
         """

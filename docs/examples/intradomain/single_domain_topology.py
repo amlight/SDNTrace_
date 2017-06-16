@@ -12,7 +12,7 @@ from mininet.cli import CLI
 from mininet.log import setLogLevel
 
 
-ip = '192.168.56.1'
+ip = '192.168.99.1'
 
 
 def single_domain():

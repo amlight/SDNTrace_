@@ -1,8 +1,6 @@
 """
     
 """
-
-
 from ryu.lib import hub
 from libs.core.singleton import Singleton
 from libs.core.config_reader import ConfigReader
@@ -16,9 +14,6 @@ class GraphColoring(object):
     __metaclass__ = Singleton
 
     def __init__(self):
-        self.switches = Switches()
-        self.links = Links()
-        self.config = ConfigReader()
         self.colors = []        # List of current colors in use
         self.old_colors = []    # List of old colors used
         # Threads
@@ -28,17 +23,17 @@ class GraphColoring(object):
     def _push_colors(self):
         """
             This routine will run every PUSH_COLORS_INTERVAL interval
-            and process the self.links to associate colors to OFSwitches.
+            and process the Links() to associate colors to OFSwitches.
             Flows will be pushed to switches with the dl_src field set
             to the defined color outputting to controller
             Args:
                 self
         """
         while True:
-            if len(self.switches) > 1:
-                if len(self.links) is not 0:
+            if len(Switches()) > 1:
+                if len(Links()) is not 0:
                     self.install_colored_flows()
-            hub.sleep(self.config.trace.push_color_interval)
+            hub.sleep(ConfigReader().trace.push_color_interval)
 
     def install_colored_flows(self):
         """
@@ -47,7 +42,7 @@ class GraphColoring(object):
             Then push new flows
         """
         # TODO: Break this method into smaller ones
-        colors = self.define_colors(self.switches.get_switches())
+        colors = self.define_colors(Switches().get_switches())
         # Compare received colors with self.old_colors
         # If the same, ignore
         if colors is not None:
@@ -63,7 +58,7 @@ class GraphColoring(object):
         # 1 - Delete colored flows
         # 2 - For each switch, check colors of neighbors
         # 3 - Install all neighbors' colors
-        for switch in self.switches.get_switches():
+        for switch in Switches().get_switches():
             # 1 - Delete old colored flows
             switch.delete_colored_flows()
             # 2 - Check colors of all other switches
@@ -72,7 +67,7 @@ class GraphColoring(object):
                 # Get Dict Key. Just one Key
                 for key in color:
                     if key != switch.name:
-                        neighbor = self.switches.get_switch(key, by_name=True)
+                        neighbor = Switches().get_switch(key, by_name=True)
                         if neighbor in switch.adjacencies_list:
                             neighbor_colors.append(color[key])
             # 3 - Install all colors from other switches
@@ -107,5 +102,5 @@ class GraphColoring(object):
                 match for deleting old flows
                 Just copy current color for old_color variable
         """
-        for switch in self.switches.get_switches():
+        for switch in Switches().get_switches():
             switch.old_color = switch.color

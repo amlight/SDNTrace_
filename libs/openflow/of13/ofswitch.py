@@ -48,9 +48,11 @@ class OFSwitch13(OFSwitch):
         for port in ev.msg.body:
             if port.port_no < ofproto.OFPP_MAX:
                 speed = get_port_speed(port.curr_speed)
+                status = 'up' if port.config == 0 and port.state == 0 else 'down'
                 ports[port.port_no] = {"port_no": port.port_no,
                                        "name": port.name,
-                                       "speed": speed}
+                                       "speed": speed,
+                                       'status': status}
         self.ports = ports
 
     def prepare_default_flow(self):

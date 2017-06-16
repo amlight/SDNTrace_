@@ -1,15 +1,20 @@
+"""
+
+"""
 from datetime import datetime
 from libs.topology.switches import Switches
 
 
 class FormatRest:
+    """
+
+    """
 
     def __init__(self):
-        self.switches = Switches()
-        self.switches = Switches()
         self.start_time = self.current_time()
 
-    def current_time(self):
+    @staticmethod
+    def current_time():
         return datetime.now()
 
     def get_time(self, to_str=True):
@@ -34,7 +39,7 @@ class FormatRest:
         step["type"] = trace_type
         # Get port name instead of port_no
         if dpid:
-            new_switch = self.switches.get_switch(dpid, by_name=True)
+            new_switch = Switches().get_switch(dpid, by_name=True)
             try:
                 port_name = new_switch.ports[port]["name"]
             except:

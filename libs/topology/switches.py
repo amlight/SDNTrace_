@@ -17,7 +17,6 @@ class Switches:
 
     def __init__(self):
         self._switches = dict()
-        self.links = Links()
 
     def __len__(self):
         return len(self._switches)
@@ -41,9 +40,10 @@ class Switches:
         """
         switch = self.get_switch(ev.datapath)
         if switch is not False:
-            self.links.remove_switch(switch.name)
+            Links().remove_switch(switch.name)
             self._switches.pop(switch.dpid)
             switch.print_removed()
+            del switch
 
     def get_switch(self, datapath, by_name=False):
         """
@@ -66,6 +66,11 @@ class Switches:
         return False
 
     def get_switches(self):
+        """
+        
+        Returns:
+
+        """
         return self._switches.values()
 
     def update_switch_address(self, switch_dp):

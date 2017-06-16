@@ -120,6 +120,7 @@ class Links:
         for link in self.links:
             if link.switch_a == switch or link.switch_z == switch:
                 self.links.remove(link)
+                del link
 
     def __str__(self):
         """

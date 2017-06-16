@@ -21,21 +21,19 @@ class TopologyDiscovery(object):
     __metaclass__ = Singleton
 
     def __init__(self):
-        self.config = ConfigReader()
-        self.switches = Switches()
-        self.links = Links()
         self.active = self._set_active()
         self.run = hub.spawn(self._topology_discovery)
         self._topology = None
 
-    def _set_active(self):
+    @staticmethod
+    def _set_active():
         """
             Check configuration to see if it is enabled
             Returns:
                 True:
                 False:
         """
-        if self.config.topo.activate == 'on':
+        if ConfigReader().topo.activate == 'on':
             print('Topology Discovery App activated')
             return True
         else:
@@ -44,19 +42,19 @@ class TopologyDiscovery(object):
 
     def _topology_discovery(self):
         """
-            Keeps looping self.switches every PACKET_OUT_INTERVAL seconds
+            Keeps looping Switches() every PACKET_OUT_INTERVAL seconds
             Send a packet_out w/ LLDP to every port found
         """
         if self.active:
-            vlan = self.config.topo.vlan_discovery
+            vlan = ConfigReader().topo.vlan_discovery
             while True:
                 # Only send PacketOut + LLDP when more than one switch exists
-                if len(self.switches) > 1:
-                    for switch in self.switches.get_switches():
+                if len(Switches()) > 1:
+                    for switch in Switches().get_switches():
                         for port in switch.ports:
                             pkt = prepare_lldp_packet(switch, port, vlan)
                             switch.send_packet_out(port, pkt.data, lldp=True)
-                hub.sleep(self.config.topo.packet_out_interval)
+                hub.sleep(ConfigReader().topo.packet_out_interval)
 
     @staticmethod
     @called_on(topology_refresher_queue)
@@ -76,28 +74,32 @@ class TopologyDiscovery(object):
             Args:
                 link: Class Link
         """
-        created = self.links.process_new_link(link)
+        created = Links().process_new_link(link)
         if created:
-            self.create_adjacencies(self.links)
+            self.create_adjacencies(Links())
             self._update_topology()
 
-    def create_adjacencies(self, links):
+    @staticmethod
+    def create_adjacencies(links):
         """
-            Everytime self.links is updated, update all
+            Everytime Links() is updated, update all
             adjacencies between switches
             Args:
-                links: self.links
+                links: Links()
         """
-        for switch in self.switches.get_switches():
+        for switch in Switches().get_switches():
             switch.create_adjacencies(links)
 
     def _update_topology(self):
         """
             Update topology
         """
+
+        self._topology = {}
+
         # Collect all inter-domain info from the configuration file
-        inter_conf = self.config.interdomain.locals
-        inter_names = self.config.interdomain.neighbors
+        inter_conf = ConfigReader().interdomain.locals
+        inter_names = ConfigReader().interdomain.neighbors
 
         # Create a temporary dictionary with all inter-domain ports adding
         #  the remote domain's name to it
@@ -106,7 +108,7 @@ class TopologyDiscovery(object):
             sw_dpid, sw_port = node.split(':')
             inter[sw_dpid] = {}
             for neighbor in inter_names:
-                local = self.config.interdomain.get_local_sw(neighbor)
+                local = ConfigReader().interdomain.get_local_sw(neighbor)
                 if local == sw_dpid:
                     inter[sw_dpid][sw_port] = {'type': 'interdomain',
                                                'domain_name': neighbor}
@@ -115,7 +117,7 @@ class TopologyDiscovery(object):
         #   Uses the inter dict to add inter-domain info. If no inter-domain
         #   is found, assume it is a host port - for now.
         switches = dict()
-        for switch in self.switches.get_switches():
+        for switch in Switches().get_switches():
             switches[switch.name] = {}
             for port in switch.ports:
                 try:
@@ -124,19 +126,25 @@ class TopologyDiscovery(object):
                     switches[switch.name][port] = {'type': 'host',
                                                    'host_name': 'no_name'}
 
-        # Now, update the switches dictionary with the link info from the
-        #   SDNTrace.links, which is the Links class.
-        for link in self.links.links:
-            switches[link.switch_a][link.port_a] = {'type': 'link',
-                                                    'neighbor_dpid': link.switch_z,
-                                                    'neighbor_port': link.port_z}
-            switches[link.switch_z][link.port_z] = {'type': 'link',
-                                                    'neighbor_dpid': link.switch_a,
-                                                    'neighbor_port': link.port_a}
+        try:
+            # Now, update the switches dictionary with the link info from the
+            #   SDNTrace.links, which is the Links class.
+            for link in Links().links:
+                switches[link.switch_a][link.port_a] = {'type': 'link',
+                                                        'neighbor_dpid': link.switch_z,
+                                                        'neighbor_port': link.port_z}
+                switches[link.switch_z][link.port_z] = {'type': 'link',
+                                                        'neighbor_dpid': link.switch_a,
+                                                        'neighbor_port': link.port_a}
+        except KeyError:
+            pass
+
         self._topology = switches
 
     def get_topology(self):
         """
-            Has usage?
+            Used by REST
+            Force a topology sync before sending the reply.
         """
+        self._update_topology()
         return self._topology

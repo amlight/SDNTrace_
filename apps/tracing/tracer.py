@@ -51,7 +51,7 @@ class TracePath(object):
 
         """
         dpid = self.init_entries['trace']['switch']['dpid']
-        return self.switches.get_switch(dpid, by_name=True)
+        return Switches().get_switch(dpid, by_name=True)
 
     def tracepath(self):
         """
@@ -95,7 +95,7 @@ class TracePath(object):
                 # If we got here, that means we need to keep going.
                 # Prepare next packet
                 prepare = prepare_next_packet
-                entries, color, switch = prepare(self.switches, entries, result, packet_in)
+                entries, color, switch = prepare(Switches(), entries, result, packet_in)
 
         # Check if the last switch has inter-domain neighbors
         # if so, infer is current flows go through the interdomain port

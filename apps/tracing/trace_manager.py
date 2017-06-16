@@ -27,8 +27,6 @@ class TraceManager(object):
         """
             Initialization of the TraceManager class
         """
-        self.switches = Switches()
-        self.config = ConfigReader()
         # Configs
         self._my_domain = None  # my domain name from config
         self._trace_interval = int()  # Interval between traces
@@ -69,10 +67,10 @@ class TraceManager(object):
             Process the configuration file and update all configs
             variables (my_domain, trace_interval, neighbors and borders
         """
-        self._trace_interval = self.config.trace.run_trace_interval
-        self._my_domain = self.config.interdomain.my_domain
-        self._neighbors = self.config.interdomain.neighbors
-        sw_ports = self.config.interdomain.locals
+        self._trace_interval = ConfigReader().trace.run_trace_interval
+        self._my_domain = ConfigReader().interdomain.my_domain
+        self._neighbors = ConfigReader().interdomain.neighbors
+        sw_ports = ConfigReader().interdomain.locals
         for port in sw_ports:
             sw, sw_port = port.split(':')
             if sw in self._borders.keys():
@@ -228,7 +226,7 @@ class TraceManager(object):
         """
         # TODO: improve with more tests
         dpid = entries['trace']['switch']['dpid']
-        init_switch = self.switches.get_switch(dpid, by_name=True)
+        init_switch = Switches().get_switch(dpid, by_name=True)
         if not isinstance(init_switch, bool):
             return True
         return False
@@ -303,7 +301,7 @@ class TraceManager(object):
             Returns:
                 service url
         """
-        return self.config.interdomain.get_service(domain)
+        return ConfigReader().interdomain.get_service(domain)
 
     def new_trace(self, entries):
         """
@@ -340,9 +338,9 @@ class TraceManager(object):
                 or
                 (pktIn_dpid, pktIn_port, pkt[4], pkt, ev)
         """
-        color = self.config.interdomain.color_value
+        color = ConfigReader().interdomain.color_value
         inter_port = switch.inter_domain_ports
-        my_domain = self.config.interdomain.my_domain
+        my_domain = ConfigReader().interdomain.my_domain
 
         pktIn_dpid = '%016x' % ev.msg.datapath.id
         pktIn_port = in_port
