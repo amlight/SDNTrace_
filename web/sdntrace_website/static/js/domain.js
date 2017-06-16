@@ -1,23 +1,31 @@
 
+/* global SDNLG_CONF, sdncolor */
+
+/**
+ * Represents link between two nodes.
+ * @returns {Link}
+ */
 var Link = function() {
-    // Switch obj
+    // Switch objects
     this.node1 = null;
     this.node2 = null;
 
-    // String
+    // Label name String
     this.label1 = null;
     this.label2 = null;
 
-    // String
+    // Label number String
     this.label_num1 = null;
     this.label_num2 = null;
 
     // number. Bits per second.
     this.speed = null;
-}
+};
 
 /**
  * Switch representation.
+ * @param {type} switch_id Switch DPID (datapath id)
+ * @returns {Switch}
  */
 var Switch = function(switch_id) {
     this.id = switch_id;
@@ -25,7 +33,7 @@ var Switch = function(switch_id) {
 
     this.name;
     this.switch_color;
-    this.tcp_port
+    this.tcp_port;
     this.openflow_version;
     this.switch_vendor;
     this.ip_address;
@@ -45,93 +53,105 @@ var Switch = function(switch_id) {
 
     /**
      * Get switch fantasy name from configuration data.
+     * @returns {String}
      */
-    this.get_name = function() {
+    this.getName = function() {
         if (this.name) {
             return this.name;
         }
-        if (typeof SDNLG_CONF != 'undefined') {
+        if (typeof SDNLG_CONF !== 'undefined') {
             var name = SDNLG_CONF.dict[this.id];
-            if (name != undefined) {
+            if (name !== undefined) {
                 return name;
             }
         }
         return "";
-    }
+    };
 
     /**
      * Get switch fantasy name from configuration data.
      * If there is no name return the switch ID.
      */
-    this.get_name_or_id = function() {
+    this.getNameOrId = function() {
         if (this.name) {
             return this.name;
         }
-        if (typeof SDNLG_CONF != 'undefined') {
+        if (typeof SDNLG_CONF !== 'undefined') {
             var name = SDNLG_CONF.dict[this.id];
-            if (name != undefined) {
+            if (name !== undefined) {
                 return name;
             }
         }
         return this.id;
-    }
+    };
 
     /**
      * Get switch fantasy name from configuration data.
      * Return verbose name as: <ID> - <NAME>
      */
-    this.get_verbose_name = function() {
+    this.getVerboseName = function() {
         if (this.name) {
             return this.id + ' - ' + this.name;
         }
-        if (typeof SDNLG_CONF != 'undefined') {
+        if (typeof SDNLG_CONF !== 'undefined') {
             var name = SDNLG_CONF.dict[this.id];
-            if (name != undefined) {
+            if (name !== undefined) {
                 return this.id + ' - ' + name;
             }
         }
         return this.id;
-    }
+    };
 
     /**
      * Get switch fantasy name from configuration data.
      * Return verbose name to be used on vis.js: <ID>\n<NAME>
      */
-    this.get_node_name = function() {
+    this.getNodeName = function() {
         if (this.name) {
             return this.name;
         }
 
-        if (typeof SDNLG_CONF != 'undefined') {
+        if (typeof SDNLG_CONF !== 'undefined') {
             var name = SDNLG_CONF.dict[this.id];
-            if (name != undefined) {
+            if (name !== undefined) {
                 return name;
             }
         }
         return this.id;
-    }
+    };
 
     this.get_port_by_id = function(node_id, p_id) {
-        var p_id = node_id +"_"+ p_id;
+        var port_id = node_id +"_"+ p_id;
 
         for (var x in this.ports){
-            if(this.ports[x].id == p_id) {
+            if(this.ports[x].id === port_id) {
                 return this.ports[x];
             }
         }
         return null;
-    }
+    };
 
-    this.get_d3js_data = function() {
-        node_id = this.id;
-        node_obj = {id: node_id, dpid: node_id, name: node_id, data:this, label:this.get_node_name(), physics:true, mass:2, stroke_width:1, type:"switch", x:300, y:300};
+    this.getD3jsData = function() {
+        var nodeObj = {
+            id: this.id,
+            dpid: this.id,
+            name: this.id,
+            data: this,
+            label: this.getNodeName(),
+            physics: true,
+            stroke_width: 1,
+            x: 300, // OBS: need to position otherwise will be at x = 0
+            y: 300, // OBS: need to position otherwise will be at y = 0
+            type: Switch.TYPE
+        };
         // Trace coloring
-        if (typeof(node_obj.color)==='undefined') {
-            node_obj.background_color = sdncolor.NODE_COLOR[node_obj.type];
+        if (typeof(nodeObj.color) === 'undefined') {
+            nodeObj.background_color = sdncolor.NODE_COLOR[nodeObj.type];
         }
-        return node_obj;
-    }
-}
+        return nodeObj;
+    };
+};
+
 // Return switch id if the class is used with strings
 Switch.prototype.toString = function(){ return this.id; };
 Switch.clone_obj = function(p_sw) {
@@ -155,90 +175,162 @@ Switch.clone_obj = function(p_sw) {
 };
 
 /**
- * Switch port representation.
+ * Switch static TYPE property;
+ * @type String
  */
-var Port = function(node_id, port_id, number, label, speed, uptime, status) {
+Switch.TYPE = "switch";
+
+/**
+ * Node port representation.
+ * Node can be a Switch or Host.
+ * 
+ * @param {type} node_id Switch or Host id.
+ * @param {type} port_id Port id
+ * @param {type} number Port number
+ * @param {type} label Port label
+ * @returns {Port}
+ */
+var Port = function(node_id, port_id, number, label) {
     this.id = node_id + "_" + port_id;
     this.number = number;
     this.label = label;
-    this.speed = speed;
-    this.uptime = uptime;
-    this.status = status;
+    this.speed = '';
+    this.uptime = '';
+    this.status = '';
 
-    this.get_d3js_data = function() {
-        node_id = this.id;
-        node_obj = {id: node_id, name: null, data:this, label:this.label, physics:true, from_sw:'', to_sw:'', mass:2, stroke_width:1, type:"port"};
-        node_obj.background_color = sdncolor.NODE_COLOR[node_obj.type];
+    this.getD3jsData = function() {
+        var nodeObj = {
+            id: this.id,
+            name: null,
+            data: this,
+            label: this.label,
+            physics: true,
+            from_sw: '',
+            to_sw: '',
+            stroke_width: 1,
+            type: Port.TYPE
+        };
+        nodeObj.background_color = sdncolor.NODE_COLOR[nodeObj.type];
 
-        return node_obj;
-    }
+        return nodeObj;
+    };
+};
 
-}
 // Return switch port id if the class is used with strings
 Port.prototype.toString = function(){ return this.id; };
 
 /**
+ * Port static TYPE property;
+ * @type String
+ */
+Port.TYPE = "port";
+
+
+/**
  * Domain representation.
+ * @param {type} domain_id
+ * @param {type} label
+ * @returns {Domain}
  */
 var Domain = function(domain_id, label) {
     this.id = domain_id;
     this.label = label;
 
-    this.get_d3js_data = function() {
-        node_obj = {id: this.id, name: null, data:this, label:this.label, physics:true, mass:2, stroke_width:1, type:"domain", x:300, y:300};
-        node_obj.background_color = sdncolor.NODE_COLOR[node_obj.type];
+    this.getD3jsData = function() {
+        var nodeObj = {
+            id: this.id,
+            name: null,
+            data: this,
+            label: this.label,
+            physics: true,
+            stroke_width: 1,
+            type: Domain.TYPE
+        };
+        nodeObj.background_color = sdncolor.NODE_COLOR[nodeObj.type];
 
-        return node_obj;
-    }
+        return nodeObj;
+    };
 
-    this.get_name = function() {
+    this.getName = function() {
         return this.label;
-    }
-}
-Domain.create_id = function(p_domain_name) {
-    /**
-    * Create an Domain ID based on the domain_name.
-    */
-    if (p_domain_name == null || p_domain_name == "") {
-        console.log("[ERROR] Domain.create_id p_domain_name is empty.");
-        throw "[ERROR] Domain.create_id p_domain_name is empty.";
+    };
+};
+
+/**
+ * Domain static TYPE property;
+ * @type String
+ */
+Domain.TYPE = "domain";
+
+/**
+ * Domain static function to generate an ID based on the domain_name. 
+ * @param {type} p_domainName
+ * @returns {String}
+ */
+Domain.createId = function(p_domainName) {
+    if (p_domainName === null || p_domainName === "") {
+        console.log("[ERROR] Domain.createId p_domain_name is empty.");
+        throw "[ERROR] Domain.createId p_domain_name is empty.";
     }
 
-    var domain_id = p_domain_name.replace(" ", "_");
+    var domain_id = p_domainName.replace(" ", "_");
 
     return "domain_" + domain_id;
-}
+};
 
 /**
  * Host representation.
+ * Hosts must be linked to a Node.
+ * 
+ * @param {type} host_id Host id. Use can use the createId() to generate an ID.
+ * @param {type} label Host label
+ * @returns {Host}
  */
-var Host = function(node_id, port_id, label) {
-    this.id = Host.create_id(node_id, port_id);
+var Host = function(host_id, label) {
+    this.id = host_id;
     this.label = label;
 
-    this.get_d3js_data = function() {
-        node_obj = {id: this.id, name: null, data:this, label:this.label, physics:true, mass:2, stroke_width:1, type:"host", x:300, y:300};
-        node_obj.background_color = sdncolor.NODE_COLOR[node_obj.type];
+    this.getD3jsData = function() {
+        var nodeObj = {
+            id: this.id,
+            name: null,
+            data: this,
+            label: this.label,
+            physics: true,
+            stroke_width: 1,
+            type: Host.TYPE
+        };
+        nodeObj.background_color = sdncolor.NODE_COLOR[nodeObj.type];
 
-        return node_obj;
-    }
+        return nodeObj;
+    };
 
-    this.get_name = function() {
+    this.getName = function() {
         return this.label;
+    };
+};
+
+/**
+ * Host static TYPE property;
+ * @type String
+ */
+Host.TYPE = "host";
+
+/**
+ * Host static function to generate a Host ID with the parameters.
+ * @param {type} node_id
+ * @param {type} port_id
+ * @returns {String}
+ */
+Host.createId = function(node_id, port_id) {
+    if (node_id === null || node_id === "") {
+        console.log("[ERROR] Host.createId node_id empty.");
+        throw "[ERROR] Host.createId node_id empty.";
     }
-}
-Host.create_id = function(node_id, port_id) {
-    if (node_id == null || node_id == "") {
-        console.log("[ERROR] Host.create_id node_id empty.");
-        throw "[ERROR] Host.create_id node_id empty.";
-    }
-    if (port_id == null || port_id == "") {
-        console.log("[ERROR] Host.create_id port_id empty.");
-        throw "[ERROR] Host.create_id port_id empty.";
+    if (port_id === null || port_id === "") {
+        console.log("[ERROR] Host.createId port_id empty.");
+        throw "[ERROR] Host.createId port_id empty.";
     }
 
     return "host_" + node_id + "_" + port_id;
-}
-
-// Return switch port id if the class is used with strings
-Port.prototype.toString = function(){ return this.id; };
+};
