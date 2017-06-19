@@ -1,13 +1,7 @@
-
-from sdntrace_website import app
 """
 Use of Flask, a lightweight Python web framework.
-
-Install:
-    pip install Flask
-Run:
-    python run_web.py
 """
+from sdntrace_website import app
 
 
 if __name__ == '__main__':

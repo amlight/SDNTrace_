@@ -3,11 +3,18 @@
 """
 
 import itertools as it
-import socket
-import struct
+from libs.tcpip.format import eth_addr, ip_addr
 
 
 def process_match(match):
+    """
+
+    Args:
+        match:
+
+    Returns:
+
+    """
 
     def process_subnet(wcard, field):
 
@@ -59,22 +66,14 @@ def process_match(match):
 
 
 def process_actions(actions):
+    """
 
-    def get_ip_from_long(long_ip):
-        return socket.inet_ntoa(struct.pack('!L', long_ip))
+    Args:
+        actions:
 
-    def eth_addr(a):
-        """
-            Print Mac Address in the human format
-        Args:
-            a: string "6s"
-        Returns:
-            mac in the human format
-        """
-        string = "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x"
-        mac = string % (ord(a[0]), ord(a[1]), ord(a[2]),
-                        ord(a[3]), ord(a[4]), ord(a[5]))
-        return mac
+    Returns:
+
+    """
 
     actions_list = list()
 
@@ -96,10 +95,10 @@ def process_actions(actions):
                                  'dl_addr': eth_addr(action.dl_addr)})
         elif action.type == 6:
             actions_list.append({'type': 'OFPActionSetNwSrc(6)',
-                                 'nw_addr': get_ip_from_long(action.nw_addr)})
+                                 'nw_addr': ip_addr(action.nw_addr)})
         elif action.type == 7:
             actions_list.append({'type': 'OFPActionSetNwDst(7)',
-                                 'nw_addr': get_ip_from_long(action.nw_addr)})
+                                 'nw_addr': ip_addr(action.nw_addr)})
         elif action.type == 8:
             actions_list.append({'type': 'OFPActionSetNwTos(8)', 'tos': action.tos})
         elif action.type == 9:
@@ -113,3 +112,59 @@ def process_actions(actions):
             actions_list.append({'type': 'OFPActionVendor(65535)', 'vendor': action.vendor})
 
     return actions_list
+
+
+def process_flows_stats(flow):
+    """
+        /sdntrace/switches/{dpid}/flows
+       {
+            "dpid": "0000000000000001",
+            "number_flows": 5,
+            "flows": [
+                {
+                    "idle_timeout": 0,
+                    "cookie": 2000002,
+                    "priority": 50001,
+                    "hard_timeout": 0,
+                    "byte_count": 0,
+                    "duration_nsec": 71000000,
+                    "packet_count": 0,
+                    "duration_sec": 4,
+                    "table_id": 0,
+                    "match": {
+                        "wildcards": 3678458,
+                        "dl_src": "ee:ee:ee:11:11:11",
+                        "in_port": 1
+                        ...
+                    },
+                    "actions": [
+                        {
+                            "max_len": 65509,
+                            "type": "OFPActionOutput(0)",
+                            "port": 65533
+                        }
+                        ...
+                    ],
+                }
+                ...
+            ]
+        }
+        or
+        {} if not found
+
+    """
+    match = process_match(flow.match)
+    actions = process_actions(flow.actions)
+    flow_stats = {
+        "byte_count": flow.byte_count,
+        "cookie": flow.cookie,
+        "duration_nsec": flow.duration_nsec,
+        "duration_sec": flow.duration_sec,
+        "hard_timeout": flow.hard_timeout,
+        "idle_timeout": flow.idle_timeout,
+        "packet_count": flow.packet_count,
+        "priority": flow.priority,
+        "table_id": flow.table_id,
+        "match": match,
+        "actions": actions}
+    return flow_stats

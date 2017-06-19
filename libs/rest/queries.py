@@ -2,8 +2,7 @@
 
 """
 import json
-from libs.openflow.of10.openflow_helper import process_actions
-from libs.openflow.of10.openflow_helper import process_match
+from libs.rest.openflow_helper import process_flow_stats
 from libs.topology.switches import Switches
 from apps.topo_discovery.topo_discovery import TopologyDiscovery
 
@@ -129,14 +128,6 @@ class FormatRest(object):
                 "number_flows": 5,
                 "flows": [
                     {
-                        "actions": [
-                            {
-                                "max_len": 65509,
-                                "type": "OFPActionOutput(0)",
-                                "port": 65533
-                            }
-                            ...
-                        ],
                         "idle_timeout": 0,
                         "cookie": 2000002,
                         "priority": 50001,
@@ -151,7 +142,15 @@ class FormatRest(object):
                             "dl_src": "ee:ee:ee:11:11:11",
                             "in_port": 1
                             ...
-                        }
+                        },
+                        "actions | instructions": [
+                            {
+                                "max_len": 65509,
+                                "type": "OFPActionOutput(0)",
+                                "port": 65533
+                            }
+                            ...
+                        ],
                     }
                     ...
                 ]
@@ -165,23 +164,8 @@ class FormatRest(object):
             if switch.name == dpid:
                 for flow in sorted(sorted(switch.flows, key=lambda f: f.duration_sec, reverse=True),
                                    key=lambda f: f.priority, reverse=True):
-                    match = process_match(flow.match)
-                    actions = process_actions(flow.actions)
-                    flow_stats = {
-                        "byte_count": flow.byte_count,
-                        "cookie": flow.cookie,
-                        "duration_nsec": flow.duration_nsec,
-                        "duration_sec": flow.duration_sec,
-                        "hard_timeout": flow.hard_timeout,
-                        "idle_timeout": flow.idle_timeout,
-                        "packet_count": flow.packet_count,
-                        "priority": flow.priority,
-                        "table_id": flow.table_id,
-                        "match": match,
-                        "actions": actions
-                    }
+                    flow_stats = process_flow_stats(switch, flow)
                     flows.append(flow_stats)
-
                 # Finished loop, process output
                 final = {
                     "dpid": dpid,
