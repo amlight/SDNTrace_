@@ -60,6 +60,28 @@ def get_field_ryu(type_field):
     return names[class_name]
 
 
+def format_option(field, option):
+    """
+
+    Args:
+        field:
+        option:
+
+    Returns:
+
+    """
+    if field in ['eth_src', 'eth_dst', 'arp_spa', 'arp_tpa', 'arp_sha', 'arp_tha']:
+        return eth_addr(option)
+    elif field in ['eth_type']:
+        return hex(option)
+    elif field in ['ipv4_src', 'ipv4_dst']:
+        return ip_addr(option)
+    elif field in ['ipv6_src', 'ipv6_dst', 'ipv6_nd_sll', 'ipv6_nd_tll']:
+        return ip6_addr(option)
+
+    return option
+
+
 def get_fields(oxm_fields):
     """
 
@@ -73,23 +95,16 @@ def get_fields(oxm_fields):
 
     for field in oxm_fields:
 
+        # print field.__dict__
+
         oxm_value = dict()
         # oxm_value['len'] = field.length
         oxm_value['field'] = get_field_ryu(type(field))
+        oxm_value['value'] = format_option(oxm_value['field'], field.value)
+
         if 'mask' in field.__dict__.keys():
             if field.mask is not None:
-                oxm_value['mask'] = field.mask
-
-        if oxm_value['field'] in ['eth_src', 'eth_dst', 'arp_spa', 'arp_tpa', 'arp_sha', 'arp_tha']:
-            oxm_value['value'] = eth_addr(field.value)
-        elif oxm_value['field'] in ['eth_type']:
-            oxm_value['value'] = hex(field.value)
-        elif oxm_value['field'] in ['ipv4_src', 'ipv4_dst']:
-            oxm_value['value'] = ip_addr(field.value)
-        elif oxm_value['field'] in ['ipv6_src', 'ipv6_dst', 'ipv6_nd_sll', 'ipv6_nd_tll']:
-            oxm_value['value'] = ip6_addr(field.value)
-        else:
-            oxm_value['value'] = field.value
+                oxm_value['mask'] = format_option(oxm_value['field'], field.mask)
 
         fields.append(oxm_value)
         del oxm_value

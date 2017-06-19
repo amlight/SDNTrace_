@@ -3,7 +3,6 @@
 """
 import socket
 import struct
-import netaddr
 
 
 def ip_addr(ip):
