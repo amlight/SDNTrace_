@@ -146,5 +146,7 @@ class TopologyDiscovery(object):
             Used by REST
             Force a topology sync before sending the reply.
         """
+        # TODO: this shouldn't be needed - fix it
         self._update_topology()
+
         return self._topology

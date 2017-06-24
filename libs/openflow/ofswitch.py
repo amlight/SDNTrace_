@@ -140,8 +140,8 @@ class OFSwitch(object):
         else:
             if msg.desc.port_no not in self.ports:
                 speed = get_speed_name(ev.msg.version, msg.desc)
-                status = 'up' if msg.config == 0 \
-                                 and msg.state == 0 else 'down'
+                status = 'up' if msg.desc.config == 0 \
+                                 and msg.desc.state == 0 else 'down'
                 self.ports[msg.desc.port_no] = {"port_no": msg.desc.port_no,
                                                 "name": msg.desc.name,
                                                 "speed": speed,
@@ -232,7 +232,9 @@ class OFSwitch(object):
         ofproto = datapath.ofproto
 
         if lldp:
-            in_port = ofproto.OFPP_CONTROLLER
+            # TODO: confirm for Corsa
+            # in_port = ofproto.OFPP_CONTROLLER
+            in_port = ofproto.OFPP_ANY
             out_port = port
         else:
             in_port = port

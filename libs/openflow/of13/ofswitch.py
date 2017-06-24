@@ -59,8 +59,10 @@ class OFSwitch13(OFSwitch):
         """
             Push our default flow (MAC + LLDP + VLAN)
         """
+        # TODO: Commented the ethertype for tests
+        # TODO: with Corsa
         match = OFPMatch(eth_dst=lldp.LLDP_MAC_NEAREST_BRIDGE,
-                         eth_type=ether.ETH_TYPE_LLDP,
+                        # eth_type=ether.ETH_TYPE_LLDP,
                          vlan_vid=self.config.topo.vlan_discovery |
                          ofproto_v1_3.OFPVID_PRESENT)
         self.add_default_flow(match)

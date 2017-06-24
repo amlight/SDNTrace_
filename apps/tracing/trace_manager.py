@@ -347,7 +347,11 @@ class TraceManager(object):
 
         pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
         msg = TraceMsg()
-        msg.import_data(pkt[-1])
+        try:
+            msg.import_data(pkt[-1])
+        except TypeError:
+            # Non-tracing Packet-In
+            return
 
         if msg.type == 'intra' and msg.local_domain == my_domain:
             # Intra-domain

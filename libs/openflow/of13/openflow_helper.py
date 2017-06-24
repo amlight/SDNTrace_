@@ -95,8 +95,6 @@ def get_fields(oxm_fields):
 
     for field in oxm_fields:
 
-        # print field.__dict__
-
         oxm_value = dict()
         # oxm_value['len'] = field.length
         oxm_value['field'] = get_field_ryu(type(field))
@@ -154,28 +152,87 @@ def process_match(flow_match):
     return match
 
 
+def get_instruction(instruction_type):
+    """
+        OFPIT_GOTO_TABLE = 1            # Setup the next table in the lookup pipeline.
+        OFPIT_WRITE_METADATA = 2        # Setup the metadata field for use later in
+                                        # pipeline.
+        OFPIT_WRITE_ACTIONS = 3         # Write the action(s) onto the datapath
+                                        # action set
+        OFPIT_APPLY_ACTIONS = 4         # Applies the action(s) immediately
+        OFPIT_CLEAR_ACTIONS = 5         # Clears all actions from the datapath action
+                                        # set
+        OFPIT_METER = 6                 # Apply meter (rate limiter)
+        OFPIT_EXPERIMENTER = 0xFFFF     # Experimenter instruction
+    """
+    instructions = {1: 'OFPIT_GOTO_TABLE',
+                    2: 'OFPIT_WRITE_METADATA',
+                    3: 'OFPIT_WRITE_ACTIONS',
+                    4: 'OFPIT_APPLY_ACTIONS',
+                    5: 'OFPIT_CLEAR_ACTIONS',
+                    6: 'OFPIT_METER',
+                    65535: 'OFPIT_EXPERIMENTER'}
+
+    try:
+        return instructions[instruction_type]
+    except KeyError:
+        return instruction_type
+
+
+def get_port(port):
+    """
+
+    """
+    # TODO: complete this dict with all special ports
+    ports = {4294967293: 'CONTROLLER'}
+    try:
+        return ports[port]
+    except KeyError:
+        return port
+
+
+def get_action(action):
+    """
+
+    """
+    response = dict()
+    response['type'] = type(action).__name__
+    if action.type == 0:
+        response['port'] = get_port(action.port)
+        if action.max_len != 0:
+            response['max_len'] = action.max_len
+    elif action.type == 17:
+        response['ethertype'] = hex(action.ethertype)
+    elif action.type == 25:
+        response['field'] = action.key
+        response['value'] = action.value - 4096 if action.key == 'vlan_vid'\
+            else action.value
+
+    return response
+
+
+def get_actions(actions):
+    """
+
+    """
+    action_dict = list()
+    for action in actions:
+        action_dict.append(get_action(action))
+    return action_dict
+
+
 def process_instructions(instructions):
     """
-    Args:
-        instructions:
 
-        "instructions": [
-                        {
-                            "OFPInstructionGotoTable": {
-                                "len": 8,
-                                "table_id": 1,
-                                "type": 1
-                            }
-                        }
-                    ],
-    Args:
-        instructions:
-
-    Returns:
 
     """
-    # print instructions
-    return dict()
+    instruction_value = dict()
+
+    for instruction in instructions:
+        instruction_value['type'] = get_instruction(instruction.type)
+        instruction_value['actions'] = get_actions(instruction.actions)
+
+    return instruction_value
 
 
 def process_flows_stats(flow):
@@ -216,6 +273,8 @@ def process_flows_stats(flow):
     """
     match = process_match(flow.match)
     instructions = process_instructions(flow.instructions)
+
+    # TODO: translate flags
 
     flow_stats = {
         "table_id": flow.table_id,
